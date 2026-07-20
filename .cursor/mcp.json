@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "trello": {
+      "command": "node",
+      "args": ["${workspaceFolder}/src/server.js"],
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "trelloai",
+  "version": "1.0.0",
+  "description": "Server MCP per gestire Trello con Cursor AI",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "schedula": "node src/schedula-moduli.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  }
+}
