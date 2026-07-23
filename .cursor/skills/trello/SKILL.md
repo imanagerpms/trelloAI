@@ -3,8 +3,9 @@ name: trello
 description: >-
   Gestisce board e task Trello tramite MCP. Usa quando l'utente chiede di
   vedere, organizzare, spostare, creare o aggiornare task su Trello, o quando
-  vuole un riepilogo dello stato della board secondo RULES.md, o quando chiede di
-  schedulare compiti per moduli liberi (camere/corridoi/cucine) sulla board Manutenzioni.
+  vuole un riepilogo dello stato della board secondo RULES.md, o quando gestisce
+  manutenzioni / schedula compiti per moduli liberi (camere/corridoi/cucine)
+  sulla board Manutenzioni (vedi GESTIONE-MANUTENZIONI.md).
 ---
 
 # Gestione Trello con AI
@@ -23,15 +24,15 @@ Usa i prompt del server MCP quando appropriato:
 |--------|---------------|
 | `gestisci-trello` | Gestione attiva: l'AI legge RULES.md e applica le regole |
 | `stato-trello` | Solo lettura: riepilogo stato board e attività recente |
-| `schedula-moduli` | Schedula task per moduli liberi (vedi SCHEDULAZIONE-MODULI.md) |
+| `schedula-moduli` | Schedula task per moduli liberi (vedi GESTIONE-MANUTENZIONI.md) |
 | `schedula-gestione` | Schedula task di Daniele su Gestione & Amministrazione (vedi RULES-GESTIONE-ADMIN.md) |
 
-## Schedulazione moduli (Manutenzioni)
+## Gestione Manutenzioni
 
-Quando l'utente dice **"schedula i compiti per i moduli liberi"** + lista sigle + **data scadenza**:
+Quando l'utente gestisce manutenzioni o dice **"schedula i compiti per i moduli liberi"** + lista sigle + **data scadenza**:
 
-1. Leggi `SCHEDULAZIONE-MODULI.md`
-2. Esegui `npm run schedula -- <sigle> --scadenza <data>` oppure applica la regola unica
+1. Leggi `GESTIONE-MANUTENZIONI.md`
+2. Per la schedulazione: esegui `npm run schedula -- <sigle> --scadenza <data>` oppure applica la regola unica
 3. Report in italiano
 
 **Regola unica:** modulo libero → IN ESECUZIONE | non libero + periodico → Periodici | non libero + altro → Settimana

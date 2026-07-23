@@ -106,8 +106,53 @@ trelloAI/
 └── README.md
 ```
 
+## Uso da cellulare (Cursor Cloud)
+
+Gli agenti girano nel cloud Cursor; da telefono li avvii e li dirigi senza tenere il PC acceso.
+
+### Prerequisiti
+
+1. Piano Cursor con **Cloud Agents** (Pro / Pro+ / Ultra / Teams)
+2. Repo su GitHub già collegato a Cursor: `imanagerpms/trelloAI`
+3. Push su `main` di skill, `RULES*.md`, `GESTIONE-MANUTENZIONI.md`, `.cursor/mcp.json`, `.cursor/environment.json`
+
+### Secrets (una tantum)
+
+In [Cursor Dashboard → Cloud Agents → Secrets](https://cursor.com/dashboard?tab=cloud-agents) aggiungi le variabili di `.env.example`, almeno:
+
+- `TRELLO_API_KEY`
+- `TRELLO_TOKEN`
+- `TRELLO_DEFAULT_BOARD_ID` (e gli altri ID board/membri che usi)
+
+Tipo consigliato: **Runtime Secret** per key/token.
+
+### MCP in cloud
+
+Il file `.cursor/mcp.json` è nel repo. Se i tool `trello_*` non compaiono sul cloud agent, aggiungi lo stesso server stdio anche da [Integrations & MCP](https://cursor.com/dashboard) (Team) o dalla UI Cloud Agents:
+
+- command: `node`
+- args: `src/server.js` (cwd = root repo)
+
+Le env devono arrivare dai Secrets (il server legge `process.env`; in locale carica anche `.env`).
+
+### Da iPhone
+
+1. Installa **Cursor for iOS** (App Store / beta)
+2. Accedi con lo stesso account
+3. Scegli il repo `trelloAI` → avvia un **Cloud Agent**
+4. Esempi: *«Stato board Manutenzioni»*, *«Schedula i moduli liberi NR1, NR2 con scadenza domani»*
+
+### Da Android (o senza app)
+
+Apri [cursor.com/agents](https://cursor.com/agents) nel browser, stesso flusso Cloud Agent sul repo.
+
+### Remote Control (PC acceso)
+
+Se l’agente deve usare solo l’ambiente locale (MCP già configurato sul desktop): Cursor ≥ 3.9.8 → Settings → Agents → Remote Control, oppure `/remote-control` in chat; poi continua dall’app/browser. Il PC deve restare online.
+
 ## Troubleshooting
 
-- **Server MCP non connesso**: verifica che `npm install` sia stato eseguito e che `.env` esista
+- **Server MCP non connesso**: verifica che `npm install` sia stato eseguito e che `.env` esista (locale) oppure che i Secrets siano impostati (cloud)
 - **401 Unauthorized**: controlla API key e token
 - **Board non trovata**: verifica `TRELLO_DEFAULT_BOARD_ID` o passa l'ID esplicitamente
+- **Cloud senza tool Trello**: controlla Secrets + MCP dashboard; conferma che `npm install` sia ok nell’environment

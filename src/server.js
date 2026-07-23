@@ -146,7 +146,7 @@ server.registerPrompt(
     },
   },
   async ({ moduliLiberi, dataScadenza }) => {
-    const schedulaPath = join(projectRoot, "SCHEDULAZIONE-MODULI.md");
+    const schedulaPath = join(projectRoot, "GESTIONE-MANUTENZIONI.md");
     const schedulaRules = existsSync(schedulaPath)
       ? readFileSync(schedulaPath, "utf8")
       : "";
