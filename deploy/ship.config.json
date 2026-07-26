@@ -1,0 +1,15 @@
+{
+  "user": "root",
+  "remotePath": "/opt/trelloai",
+  "host": "",
+  "exclude": [
+    "node_modules",
+    ".git",
+    ".env",
+    ".octorate-tokens.json",
+    "deploy/ship.local.json",
+    "*.log",
+    ".tools",
+    ".cursor/projects"
+  ]
+}

@@ -3,6 +3,12 @@
     "trello": {
       "command": "node",
       "args": ["${workspaceFolder}/src/server.js"]
+    },
+    "octorate": {
+      "url": "https://mcp.octorate.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${OCTORATE_MCP_SECRET}"
+      }
     }
   }
 }

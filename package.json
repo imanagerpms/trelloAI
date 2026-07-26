@@ -7,6 +7,14 @@
   "scripts": {
     "start": "node src/server.js",
     "schedula": "node src/schedula-moduli.js",
+    "telegram": "node src/telegram-bot.js",
+    "telegram-test": "node src/telegram-test.js",
+    "ship": "node deploy/ship.mjs",
+    "ship:watch": "node deploy/ship.mjs --watch",
+    "ship:env": "node deploy/ship.mjs --env",
+    "ship:bootstrap": "node deploy/ship.mjs --bootstrap",
+    "octorate-login": "node src/octorate-login.js",
+    "octorate-capture": "node src/octorate-login-capture.js --ship",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,5 +24,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^17.4.2",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
   }
 }

@@ -106,53 +106,30 @@ trelloAI/
 └── README.md
 ```
 
-## Uso da cellulare (Cursor Cloud)
+## Uso da cellulare (Telegram su Scaleway)
 
-Gli agenti girano nel cloud Cursor; da telefono li avvii e li dirigi senza tenere il PC acceso.
+Il bot `@manager_888_bot` (Super Manager) gira su Scaleway. In **gruppo** rispondi solo se taggato `@manager_888_bot` (il nome visualizzato non basta) oppure in reply a un suo messaggio. In privato risponde sempre.
 
-### Prerequisiti
+Programmi in locale; sync immediato senza GitHub.
 
-1. Piano Cursor con **Cloud Agents** (Pro / Pro+ / Ultra / Teams)
-2. Repo su GitHub già collegato a Cursor: `imanagerpms/trelloAI`
-3. Push su `main` di skill, `RULES*.md`, `GESTIONE-MANUTENZIONI.md`, `.cursor/mcp.json`, `.cursor/environment.json`
+```powershell
+npm run ship:watch
+```
 
-### Secrets (una tantum)
+Poi testi su Telegram. Commit/push su GitHub solo quando la versione è ok.
 
-In [Cursor Dashboard → Cloud Agents → Secrets](https://cursor.com/dashboard?tab=cloud-agents) aggiungi le variabili di `.env.example`, almeno:
+**Server attuale:** `151.115.166.171` (Milano) → https://151-115-166-171.sslip.io  
+Dettagli: [deploy/README.md](deploy/README.md)
 
-- `TRELLO_API_KEY`
-- `TRELLO_TOKEN`
-- `TRELLO_DEFAULT_BOARD_ID` (e gli altri ID board/membri che usi)
+### OAuth Octorate (una tantum)
 
-Tipo consigliato: **Runtime Secret** per key/token.
-
-### MCP in cloud
-
-Il file `.cursor/mcp.json` è nel repo. Se i tool `trello_*` non compaiono sul cloud agent, aggiungi lo stesso server stdio anche da [Integrations & MCP](https://cursor.com/dashboard) (Team) o dalla UI Cloud Agents:
-
-- command: `node`
-- args: `src/server.js` (cwd = root repo)
-
-Le env devono arrivare dai Secrets (il server legge `process.env`; in locale carica anche `.env`).
-
-### Da iPhone
-
-1. Installa **Cursor for iOS** (App Store / beta)
-2. Accedi con lo stesso account
-3. Scegli il repo `trelloAI` → avvia un **Cloud Agent**
-4. Esempi: *«Stato board Manutenzioni»*, *«Schedula i moduli liberi NR1, NR2 con scadenza domani»*
-
-### Da Android (o senza app)
-
-Apri [cursor.com/agents](https://cursor.com/agents) nel browser, stesso flusso Cloud Agent sul repo.
-
-### Remote Control (PC acceso)
-
-Se l’agente deve usare solo l’ambiente locale (MCP già configurato sul desktop): Cursor ≥ 3.9.8 → Settings → Agents → Remote Control, oppure `/remote-control` in chat; poi continua dall’app/browser. Il PC deve restare online.
+1. In Octorate → Settings → Advanced → API aggiungi il redirect:
+   `https://151-115-166-171.sslip.io/oauth/callback`
+2. Apri https://151-115-166-171.sslip.io/oauth/login e autorizza
 
 ## Troubleshooting
 
-- **Server MCP non connesso**: verifica che `npm install` sia stato eseguito e che `.env` esista (locale) oppure che i Secrets siano impostati (cloud)
+- **Server MCP non connesso**: verifica che `npm install` sia stato eseguito e che `.env` esista
 - **401 Unauthorized**: controlla API key e token
 - **Board non trovata**: verifica `TRELLO_DEFAULT_BOARD_ID` o passa l'ID esplicitamente
-- **Cloud senza tool Trello**: controlla Secrets + MCP dashboard; conferma che `npm install` sia ok nell’environment
+- **Octorate No identity**: apri `/oauth/login` sul server dopo aver autorizzato il redirect in Octorate

@@ -11,16 +11,28 @@ export class TrelloClient {
     this.token = token;
   }
 
-  async request(path, { method = "GET", body } = {}) {
-    const url = new URL(`${TRELLO_API}${path}`);
+  /**
+   * Chiamata generica all'API Trello.
+   * I parametri finiscono in query string (stile Trello); body JSON opzionale.
+   */
+  async request(path, { method = "GET", body, params } = {}) {
+    const normalized = path.startsWith("/") ? path : `/${path}`;
+    const url = new URL(`${TRELLO_API}${normalized}`);
     url.searchParams.set("key", this.apiKey);
     url.searchParams.set("token", this.token);
 
+    if (params && typeof params === "object") {
+      for (const [k, v] of Object.entries(params)) {
+        if (v === undefined || v === null) continue;
+        url.searchParams.set(k, Array.isArray(v) ? v.join(",") : String(v));
+      }
+    }
+
     const options = { method, headers: {} };
 
-    if (body && method !== "GET") {
+    if (body !== undefined && method !== "GET" && method !== "HEAD") {
       options.headers["Content-Type"] = "application/json";
-      options.body = JSON.stringify(body);
+      options.body = typeof body === "string" ? body : JSON.stringify(body);
     }
 
     const response = await fetch(url, options);
@@ -44,94 +56,315 @@ export class TrelloClient {
     return data;
   }
 
-  listBoards() {
-    return this.request("/members/me/boards?filter=open&fields=id,name,url,dateLastActivity,desc");
+  /** Escape hatch: qualsiasi endpoint REST documentato da Trello. */
+  api(method, path, params = {}) {
+    return this.request(path, { method: method.toUpperCase(), params });
+  }
+
+  getMe() {
+    return this.request("/members/me", {
+      params: { fields: "id,fullName,username,url" },
+    });
+  }
+
+  listBoards(filter = "open") {
+    return this.request("/members/me/boards", {
+      params: {
+        filter,
+        fields: "id,name,url,dateLastActivity,desc,closed,shortUrl",
+      },
+    });
   }
 
   getBoard(boardId) {
-    return this.request(
-      `/boards/${boardId}?fields=id,name,url,desc,dateLastActivity&lists=open&list_fields=id,name,pos&cards=open&card_fields=id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed`
-    );
+    return this.request(`/boards/${boardId}`, {
+      params: {
+        fields: "id,name,url,desc,dateLastActivity,closed,shortUrl",
+        lists: "open",
+        list_fields: "id,name,pos,closed",
+        cards: "open",
+        card_fields:
+          "id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed,idLabels",
+      },
+    });
   }
 
-  listLists(boardId) {
-    return this.request(`/boards/${boardId}/lists?filter=open&fields=id,name,pos`);
+  createBoard({ name, desc, defaultLists = true, idOrganizationSource }) {
+    const params = { name, defaultLists };
+    if (desc !== undefined) params.desc = desc;
+    if (idOrganizationSource) params.idOrganization = idOrganizationSource;
+    return this.request("/boards", { method: "POST", params });
+  }
+
+  updateBoard(boardId, fields) {
+    return this.request(`/boards/${boardId}`, { method: "PUT", params: fields });
+  }
+
+  closeBoard(boardId) {
+    return this.updateBoard(boardId, { closed: true });
+  }
+
+  listLists(boardId, filter = "open") {
+    return this.request(`/boards/${boardId}/lists`, {
+      params: { filter, fields: "id,name,pos,closed" },
+    });
+  }
+
+  createList({ idBoard, name, pos = "bottom" }) {
+    return this.request("/lists", {
+      method: "POST",
+      params: { idBoard, name, pos },
+    });
+  }
+
+  updateList(listId, fields) {
+    return this.request(`/lists/${listId}`, { method: "PUT", params: fields });
+  }
+
+  archiveList(listId) {
+    return this.updateList(listId, { closed: true });
   }
 
   listCards({ boardId, listId, filter = "open" } = {}) {
+    const fields =
+      "id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed,idLabels";
     if (listId) {
-      return this.request(
-        `/lists/${listId}/cards?filter=${filter}&fields=id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed`
-      );
+      return this.request(`/lists/${listId}/cards`, { params: { filter, fields } });
     }
     if (boardId) {
-      return this.request(
-        `/boards/${boardId}/cards?filter=${filter}&fields=id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed`
-      );
+      return this.request(`/boards/${boardId}/cards`, { params: { filter, fields } });
     }
     throw new Error("Specifica boardId o listId");
   }
 
   getCard(cardId) {
-    return this.request(
-      `/cards/${cardId}?fields=id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed&actions=commentCard&actions_limit=20&checklists=all&checklist_fields=id,name&members=true&member_fields=fullName,username`
-    );
+    return this.request(`/cards/${cardId}`, {
+      params: {
+        fields:
+          "id,name,desc,due,dueComplete,idList,labels,dateLastActivity,shortUrl,url,idMembers,closed,idLabels,idBoard",
+        actions: "commentCard",
+        actions_limit: 20,
+        checklists: "all",
+        checklist_fields: "id,name",
+        members: true,
+        member_fields: "fullName,username",
+        attachments: true,
+        attachment_fields: "id,name,url,bytes,mimeType,date",
+      },
+    });
   }
 
-  createCard({ idList, name, desc, due, idMembers, idLabels }) {
-    const body = { idList, name };
-    if (desc !== undefined) body.desc = desc;
-    if (due !== undefined) body.due = due;
-    if (idMembers?.length) body.idMembers = idMembers.join(",");
-    if (idLabels?.length) body.idLabels = idLabels.join(",");
-    return this.request("/cards", { method: "POST", body });
+  createCard({ idList, name, desc, due, idMembers, idLabels, pos }) {
+    const params = { idList, name };
+    if (desc !== undefined) params.desc = desc;
+    if (due !== undefined) params.due = due;
+    if (idMembers?.length) params.idMembers = idMembers.join(",");
+    if (idLabels?.length) params.idLabels = idLabels.join(",");
+    if (pos !== undefined) params.pos = pos;
+    return this.request("/cards", { method: "POST", params });
   }
 
   updateCard(cardId, fields) {
-    const allowed = ["name", "desc", "due", "dueComplete", "idList", "closed", "idMembers", "idLabels"];
-    const body = {};
+    const allowed = [
+      "name",
+      "desc",
+      "due",
+      "dueComplete",
+      "idList",
+      "closed",
+      "idMembers",
+      "idLabels",
+      "pos",
+      "subscribed",
+    ];
+    const params = {};
     for (const key of allowed) {
       if (fields[key] !== undefined) {
         if (key === "due" && fields[key] === null) {
-          body[key] = "";
+          params[key] = "";
         } else {
-          body[key] = Array.isArray(fields[key]) ? fields[key].join(",") : fields[key];
+          params[key] = Array.isArray(fields[key])
+            ? fields[key].join(",")
+            : fields[key];
         }
       }
     }
-    return this.request(`/cards/${cardId}`, { method: "PUT", body });
+    return this.request(`/cards/${cardId}`, { method: "PUT", params });
   }
 
   moveCard(cardId, idList) {
     return this.updateCard(cardId, { idList });
   }
 
-  addComment(cardId, text) {
-    return this.request(`/cards/${cardId}/actions/comments`, {
-      method: "POST",
-      body: { text },
-    });
-  }
-
   archiveCard(cardId) {
     return this.updateCard(cardId, { closed: true });
   }
 
-  searchBoard(boardId, query) {
-    const encoded = encodeURIComponent(query);
-    return this.request(
-      `/search?query=${encoded}&idBoards=${boardId}&modelTypes=cards&cards_limit=50&card_fields=id,name,desc,due,idList,labels,dateLastActivity,shortUrl,url,closed`
-    );
+  unarchiveCard(cardId) {
+    return this.updateCard(cardId, { closed: false });
   }
 
-  getBoardActions(boardId, limit = 20) {
-    return this.request(
-      `/boards/${boardId}/actions?filter=createCard,updateCard,commentCard,moveCardToBoard,moveCardFromBoard&limit=${limit}`
-    );
+  deleteCard(cardId) {
+    return this.request(`/cards/${cardId}`, { method: "DELETE" });
+  }
+
+  copyCard({ idList, idCardSource, name, keepFromSource = "all" }) {
+    const params = { idList, idCardSource, keepFromSource };
+    if (name) params.name = name;
+    return this.request("/cards", { method: "POST", params });
+  }
+
+  addComment(cardId, text) {
+    return this.request(`/cards/${cardId}/actions/comments`, {
+      method: "POST",
+      params: { text },
+    });
+  }
+
+  updateComment(actionId, text) {
+    return this.request(`/actions/${actionId}`, {
+      method: "PUT",
+      params: { text },
+    });
+  }
+
+  deleteComment(actionId) {
+    return this.request(`/actions/${actionId}`, { method: "DELETE" });
+  }
+
+  addMemberToCard(cardId, memberId) {
+    return this.request(`/cards/${cardId}/idMembers`, {
+      method: "POST",
+      params: { value: memberId },
+    });
+  }
+
+  removeMemberFromCard(cardId, memberId) {
+    return this.request(`/cards/${cardId}/idMembers/${memberId}`, {
+      method: "DELETE",
+    });
+  }
+
+  addLabelToCard(cardId, labelId) {
+    return this.request(`/cards/${cardId}/idLabels`, {
+      method: "POST",
+      params: { value: labelId },
+    });
+  }
+
+  removeLabelFromCard(cardId, labelId) {
+    return this.request(`/cards/${cardId}/idLabels/${labelId}`, {
+      method: "DELETE",
+    });
   }
 
   getLabels(boardId) {
-    return this.request(`/boards/${boardId}/labels?fields=id,name,color`);
+    return this.request(`/boards/${boardId}/labels`, {
+      params: { fields: "id,name,color" },
+    });
+  }
+
+  createLabel({ idBoard, name, color }) {
+    const params = { idBoard, color: color || "null" };
+    if (name) params.name = name;
+    return this.request("/labels", { method: "POST", params });
+  }
+
+  updateLabel(labelId, fields) {
+    return this.request(`/labels/${labelId}`, { method: "PUT", params: fields });
+  }
+
+  deleteLabel(labelId) {
+    return this.request(`/labels/${labelId}`, { method: "DELETE" });
+  }
+
+  getBoardMembers(boardId) {
+    return this.request(`/boards/${boardId}/members`, {
+      params: { fields: "id,fullName,username" },
+    });
+  }
+
+  createChecklist({ idCard, name }) {
+    return this.request("/checklists", {
+      method: "POST",
+      params: { idCard, name },
+    });
+  }
+
+  addCheckItem({ checklistId, name, checked = false }) {
+    return this.request(`/checklists/${checklistId}/checkItems`, {
+      method: "POST",
+      params: { name, checked },
+    });
+  }
+
+  updateCheckItem({ cardId, checkItemId, name, state }) {
+    const params = {};
+    if (name !== undefined) params.name = name;
+    if (state !== undefined) params.state = state;
+    return this.request(`/cards/${cardId}/checkItem/${checkItemId}`, {
+      method: "PUT",
+      params,
+    });
+  }
+
+  deleteCheckItem({ checklistId, checkItemId }) {
+    return this.request(`/checklists/${checklistId}/checkItems/${checkItemId}`, {
+      method: "DELETE",
+    });
+  }
+
+  deleteChecklist(checklistId) {
+    return this.request(`/checklists/${checklistId}`, { method: "DELETE" });
+  }
+
+  addAttachment({ cardId, url, name }) {
+    const params = { url };
+    if (name) params.name = name;
+    return this.request(`/cards/${cardId}/attachments`, {
+      method: "POST",
+      params,
+    });
+  }
+
+  deleteAttachment(cardId, attachmentId) {
+    return this.request(`/cards/${cardId}/attachments/${attachmentId}`, {
+      method: "DELETE",
+    });
+  }
+
+  searchBoard(boardId, query) {
+    return this.request("/search", {
+      params: {
+        query,
+        idBoards: boardId,
+        modelTypes: "cards",
+        cards_limit: 50,
+        card_fields:
+          "id,name,desc,due,idList,labels,dateLastActivity,shortUrl,url,closed,idBoard",
+      },
+    });
+  }
+
+  search({ query, idBoards, modelTypes = "cards", cardsLimit = 50 }) {
+    const params = {
+      query,
+      modelTypes,
+      cards_limit: cardsLimit,
+      card_fields:
+        "id,name,desc,due,idList,labels,dateLastActivity,shortUrl,url,closed,idBoard",
+    };
+    if (idBoards) params.idBoards = Array.isArray(idBoards) ? idBoards.join(",") : idBoards;
+    return this.request("/search", { params });
+  }
+
+  getBoardActions(boardId, limit = 20) {
+    return this.request(`/boards/${boardId}/actions`, {
+      params: {
+        filter: "createCard,updateCard,commentCard,addMemberToCard,addAttachmentToCard,updateCheckItemStateOnCard",
+        limit,
+      },
+    });
   }
 }
 
