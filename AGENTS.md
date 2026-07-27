@@ -16,8 +16,6 @@ Fonte di verità: cartella [`rules/`](rules/README.md) (editabili anche dalla UI
 
 Config strutturata: [`config/`](config/) (`accommodations.json`, `turni.json`, `boards.json`).
 
-Alias legacy in root (`RULES.md`, `GESTIONE-MANUTENZIONI.md`, `RULES-GESTIONE-ADMIN.md`) puntano a `rules/`.
-
 ## Uso tipico
 
 - Riepilogo board / task: leggi le regole in `rules/` e usa i tool `trello_*`.

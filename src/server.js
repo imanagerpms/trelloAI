@@ -1,4 +1,3 @@
-import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
@@ -10,7 +9,7 @@ import {
   formatBoardOverview,
   formatCard,
 } from "./trello-client.js";
-import { readRuleFileWithFallback, buildSystemPrompt } from "./runtime-config.js";
+import { buildSystemPrompt, readRule } from "./runtime-config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
@@ -24,17 +23,15 @@ function getClient() {
 }
 
 function readRules() {
-  const fromRules =
-    readRuleFileWithFallback("super-manager.md", "RULES.md") ||
-    readRuleFileWithFallback("manutenzioni.md", "GESTIONE-MANUTENZIONI.md");
-  if (fromRules) {
+  try {
+    return buildSystemPrompt();
+  } catch {
     try {
-      return buildSystemPrompt();
+      return readRule("super-manager");
     } catch {
-      return fromRules;
+      return "Nessun file regole trovato. Crea rules/super-manager.md.";
     }
   }
-  return "Nessun file regole trovato. Crea rules/super-manager.md o RULES.md.";
 }
 
 function jsonResult(data) {
@@ -52,7 +49,7 @@ server.registerPrompt(
   "gestisci-trello",
   {
     description:
-      "Prompt per far gestire all'AI la board Trello secondo le regole definite in RULES.md",
+      "Prompt per far gestire all'AI la board Trello secondo le regole in rules/",
     argsSchema: {
       boardId: z
         .string()
@@ -80,7 +77,7 @@ server.registerPrompt(
             type: "text",
             text: `Sei un assistente per la gestione di Trello. Usa i tool MCP trello_* per leggere e modificare la board.
 
-## Regole di gestione (RULES.md)
+## Regole di gestione (rules/)
 ${rules}
 
 ## Board di riferimento
@@ -90,7 +87,7 @@ ${focusLine}
 ## Workflow
 1. Leggi lo stato attuale con trello_get_board_overview (o trello_list_cards).
 2. Riassumi cosa accade: task per lista, scadenze, attività recente.
-3. Applica le regole in RULES.md: sposta card, aggiorna scadenze, aggiungi commenti, crea task mancanti.
+3. Applica le regole in rules/: sposta card, aggiorna scadenze, aggiungi commenti, crea task mancanti.
 4. Prima di modifiche distruttive (archiviazione, spostamenti massivi), chiedi conferma all'utente.
 5. Dopo ogni modifica, riporta cosa hai fatto e perché (in base alle regole).
 
@@ -124,7 +121,7 @@ Usa i tool trello_get_board_overview e trello_get_board_activity per:
 - elencare tutte le liste e le card
 - evidenziare scadenze imminenti e task bloccati
 - riassumere l'attività recente
-- segnalare anomalie rispetto a RULES.md (leggi il file nel progetto)
+- segnalare anomalie rispetto a rules/ (leggi i file nel progetto)
 
 Rispondi in italiano con un report chiaro e actionable.`,
           },
@@ -153,9 +150,12 @@ server.registerPrompt(
     },
   },
   async ({ moduliLiberi, dataScadenza }) => {
-    const schedulaRules =
-      readRuleFileWithFallback("manutenzioni.md", "GESTIONE-MANUTENZIONI.md") ||
-      "";
+    let schedulaRules = "";
+    try {
+      schedulaRules = readRule("manutenzioni");
+    } catch {
+      /* empty */
+    }
 
     return {
       messages: [

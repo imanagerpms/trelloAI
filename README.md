@@ -49,7 +49,7 @@ Verifica in **Cursor Settings → MCP** che il server `trello` risulti connesso.
 
 Nella chat Cursor, puoi invocare i prompt del server:
 
-- **`gestisci-trello`** — l'AI legge `RULES.md`, analizza la board e gestisce i task
+- **`gestisci-trello`** — l'AI legge `rules/`, analizza la board e gestisce i task
 - **`stato-trello`** — solo riepilogo, senza modifiche
 
 ### Esempi di richieste
@@ -98,10 +98,12 @@ trelloAI/
 ├── .cursor/
 │   ├── mcp.json              # Config MCP per Cursor
 │   └── skills/trello/        # Skill agente
+├── rules/                    # Policy Super Manager per area
+├── config/                   # Strutture, pesi turni, board
 ├── src/
 │   ├── server.js             # Server MCP
-│   └── trello-client.js      # Client API Trello
-├── RULES.md                  # Le tue regole (modificabile)
+│   ├── telegram-bot.js       # Bot + HTTP admin
+│   └── …
 ├── .env.example
 └── README.md
 ```

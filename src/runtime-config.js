@@ -191,12 +191,10 @@ Persone: ${peopleLine || "Costache, Daniele, Meri"}.
   return parts.join("\n\n---\n\n") + footer;
 }
 
-/** Prefer rules/<file>, fallback root legacy path. */
-export function readRuleFileWithFallback(rulesRelative, legacyRootName) {
+/** Leggi un file markdown da rules/ (path relativo). */
+export function readRulesMarkdown(rulesRelative) {
   const primary = join(rulesDir, rulesRelative);
   if (existsSync(primary)) return readFileSync(primary, "utf8");
-  const legacy = join(projectRoot, legacyRootName);
-  if (existsSync(legacy)) return readFileSync(legacy, "utf8");
   return null;
 }
 

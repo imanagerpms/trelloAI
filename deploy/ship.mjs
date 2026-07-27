@@ -83,38 +83,12 @@ async function syncCode(cfg) {
   console.log(`→ sync ${sshTarget(cfg)}:${remote}`);
 
   // tar locale | ssh tar remoto (funziona su Windows se tar+ssh in PATH)
-  const tarArgs = [
-    "-czf",
-    "-",
-    ...((cfg.exclude || []).flatMap((e) => ["--exclude", e])),
-    "src",
-    "package.json",
-    "package-lock.json",
-    "RULES.md",
-    "RULES-GESTIONE-ADMIN.md",
-    "GESTIONE-MANUTENZIONI.md",
-    "AGENTS.md",
-    "deploy/bootstrap.sh",
-    ".cursor/skills",
-    ".cursor/mcp.json",
-    ".cursor/environment.json",
-  ].filter((p, i, arr) => {
-    if (p.startsWith("--")) return true;
-    // skip missing optional files
-    if (["src", "package.json", "package-lock.json"].includes(p)) return true;
-    return existsSync(join(root, p));
-  });
-
-  // Rebuild tar args cleanly
   const files = [
     "src",
     "config",
     "rules",
     "package.json",
     "package-lock.json",
-    "RULES.md",
-    "RULES-GESTIONE-ADMIN.md",
-    "GESTIONE-MANUTENZIONI.md",
     "AGENTS.md",
     "deploy",
     ".cursor",
