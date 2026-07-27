@@ -39,30 +39,33 @@ Quando elenchi prenotazioni o camere, raggruppa per struttura e indica la deriva
 
 Presenta la lista raggruppata per struttura, in QUESTO ordine di esecuzione:
 1. **PARTENZA CON ENTRATA** e **ENTRATA** → codifica \`ROOM Np\` (es. \`ITC#1 2p\`). Preparare la stanza per N persone, seguendo l'ordine per orario di check-in. (campo partenzeConEntrata + entrate)
-2. **PARTENZA SENZA ENTRATA** → codifica \`ROOM\` (es. \`ITC#1\`). Camera non riaffittata: preparare tutti i letti con le lenzuola, ma lasciare asciugamani e cuscini solo sul letto matrimoniale; gli altri letti coperti con la trapuntina e i cuscini (con federa) lasciati nell'armadio. Da fare DOPO le partenze con entrata. (campo partenzeSenzaEntrata)
-3. **FERMATA CON CAMBIO** → codifica \`ROOM*\` (es. \`ITC#1*\`). Cambiare biancheria bagno e letto, rassettare, pulire a terra, svuotare cestino, rabboccare sapone/carta. (campo fermateConCambio)
-4. **FERMATA semplice** e **camere vuote** → NON si scrivono nella lista. Vanno comunque aperte e controllate (rassettare, pulizia veloce, cestino, sapone/carta). Menzionale solo se richiesto. (campo aprireEControllare)
+2. **PARTENZA SENZA ENTRATA** → codifica \`ROOM\` (es. \`ITC#1\`, senza numero persone). Stessa pulizia completa di un'entrata, ma senza preparare per N ospiti. Vale anche per gli appartamenti. Da fare DOPO le partenze/entrate con Np. (campo partenzeSenzaEntrata)
+3. **FERMATA CON CAMBIO** → codifica \`ROOM*\` (es. \`ITC#1*\`). Cambiare biancheria bagno e letto, rassettare, pulire a terra, svuotare cestino, rabboccare sapone/carta. Solo affittacamere: negli **appartamenti non si fanno fermate**. (campo fermateConCambio)
+4. **FERMATA semplice** e **camere vuote** → NON si scrivono nella lista. Vanno comunque aperte e controllate (rassettare, pulizia veloce, cestino, sapone/carta). Menzionale solo se richiesto. Negli appartamenti niente fermate. (campo aprireEControllare)
 
 Note e richieste speciali: se una camera ha \`note\` con info utili alle cameriere (late/early check-in, orario arrivo, letti separati, rose/vino/transfer/colazione/deposito bagagli...), aggiungile tra parentesi quadre dopo la codifica, sintetizzate: es. \`DC#201 2p [arrivo h20, letti separati]\`. Ignora il testo standard non rilevante (es. clausole di cancellazione).
 
 ## Turni pulizie (per octorate_turni)
 
 Quando chiedono i turni / chi fa cosa oggi:
-1. Estrai lo staff dal messaggio: numero o nomi cameriere (centro), cameriere Domus Turno (default 2), assenze, se il manutentore è disponibile.
-2. Chiama **octorate_turni** con quei parametri (NON inventare lo staff se non indicato: chiedi o usa default 2+2).
+1. Estrai lo staff dal messaggio: numero o nomi cameriere Roma/centro (default 2), Tenerife (default Lala), assenze, se i manutentori sono disponibili (Roma + Mario a Tenerife). Domus Turno NON ha staff dedicato: lo fa una cameriera del pool Roma (passa cameriereTurno solo se l'utente lo chiede esplicitamente).
+2. Chiama **octorate_turni** con quei parametri (NON inventare lo staff Roma se non indicato: chiedi o usa default 2 cameriere; Tenerife default Lala/Mario).
 3. Presenta la proposta per cameriera:
-   - cluster (centro / Domus Turno)
-   - per ogni struttura assegnata: camere con codifica leggenda + spazi comuni (es. NR CUCINA, NR CORRIDOIO, NR BAGNO CONDIVISO)
+   - cluster (centro = Roma inclusa Domus Turno / Tenerife)
+   - per ogni struttura assegnata UN SOLO blocco: tutte le camere + spazi comuni insieme (MAI spezzare la stessa struttura tra più persone)
+   - se c'è Domus Turno, evidenzia il +0.3 di tragitto nel carico
    - note speciali tra [ ] se presenti
    - carico stimato
-4. Sezione **Manutentore** se ha overflow.
+4. Sezioni manutentori se c'è overflow: **Manutentore** (Roma) e **Mario** (Tenerife), da \`manutentori\` / \`manutentore\`.
 5. Riporta eventuali avvisi (assenze, overflow, cap carico).
 
 Regole operative già applicate dal tool:
 - chi pulisce camere di un affittacamere fa anche gli spazi comuni di quella struttura;
+- una struttura compare una sola volta sotto una sola persona;
 - spazi comuni SEMPRE ogni giorno (anche senza arrivi): NR/DF/DC = cucina+corridoio+bagno; ITC = cucina+corridoio; DT = area comune;
-- Domus Turno = cluster separato (30 min);
-- overflow oltre cap o assenza → manutentore.
+- Domus Turno è nel pool Roma: lo può fare una cameriera che ha già altre strutture, con +0.3 carico tragitto;
+- Tenerife TEN109 = cluster separato: pulizie **Lala**, manutenzioni/overflow **Mario**;
+- overflow oltre cap o assenza → manutentore del cluster.
 
 ## Altri tool MCP
 
@@ -178,7 +181,7 @@ function localToolDefinitions() {
       function: {
         name: "octorate_pulizie",
         description:
-          "Lista camere da pulire in una data, divisa tra PARTENZE (checkout) e FERMATE, con numero persone e note. Attribuisce alla camera FISICA del PMS Tableau (segue gli spostamenti di rete). Ritorna partenzeConEntrata/entrate (ROOM Np), partenzeSenzaEntrata (ROOM), fermateConCambio (ROOM*), aprireEControllare (fermate semplici e vuote). Default: oggi, tutte le strutture (escluso account master).",
+          "Lista camere da pulire in una data, divisa tra PARTENZE (checkout) e FERMATE, con numero persone e note. Attribuisce alla camera FISICA del PMS Tableau (segue gli spostamenti di rete). Ritorna partenzeConEntrata/entrate (ROOM Np), partenzeSenzaEntrata (ROOM, pulizia completa come entrata ma senza Np), fermateConCambio (ROOM*, solo affittacamere: niente fermate negli appartamenti), aprireEControllare (fermate semplici e vuote). Default: oggi, tutte le strutture (escluso account master).",
         parameters: {
           type: "object",
           properties: {
@@ -205,7 +208,7 @@ function localToolDefinitions() {
       function: {
         name: "octorate_turni",
         description:
-          "Proposta turni pulizie del giorno: assegna camere + spazi comuni alle cameriere bilanciando il carico. Cluster centro vs Domus Turno (separata). Spazi comuni SEMPRE ogni giorno. Overflow/assenze → manutentore. Solo proposta testuale (non scrive su Trello). Estrai lo staff dal messaggio utente (numero/nomi cameriere, cameriereTurno, assenze, manutentoreDisponibile).",
+          "Proposta turni pulizie del giorno: assegna camere + spazi comuni alle cameriere bilanciando il carico. Pool Roma (centro + Domus Turno con +0.3 tragitto, preferita a chi ha già altre strutture) e Tenerife (default Lala/Mario). Spazi comuni SEMPRE ogni giorno. Overflow → manutentore del cluster. Solo proposta testuale. Estrai lo staff dal messaggio utente.",
         parameters: {
           type: "object",
           properties: {
@@ -216,33 +219,53 @@ function localToolDefinitions() {
             cameriere: {
               type: "number",
               description:
-                "Numero cameriere cluster centro (default 2). Se conosci i nomi, passa anche cameriereNomi.",
+                "Numero cameriere pool Roma/centro (default 2). Se conosci i nomi, passa anche cameriereNomi.",
             },
             cameriereNomi: {
               type: "array",
               items: { type: "string" },
               description:
-                "Nomi cameriere cluster centro (se presente, ha priorità su cameriere).",
+                "Nomi cameriere pool Roma/centro (se presente, ha priorità su cameriere). Domus Turno può essere assegnata a una di queste.",
             },
             cameriereTurno: {
               type: "number",
-              description: "Numero cameriere Domus Turno (default 2).",
+              description:
+                "Staff dedicato Domus Turno: passa SOLO se l'utente lo chiede esplicitamente (default: nessuno; DT va a una cameriera Roma).",
             },
             cameriereTurnoNomi: {
               type: "array",
               items: { type: "string" },
               description:
-                "Nomi cameriere Domus Turno (se presente, ha priorità su cameriereTurno).",
+                "Nomi staff dedicato Domus Turno (solo se richiesto esplicitamente; altrimenti lascia vuoto).",
+            },
+            cameriereTenerife: {
+              type: "number",
+              description: "Numero cameriere Tenerife (default 1 = Lala).",
+            },
+            cameriereTenerifeNomi: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Nomi cameriere Tenerife (default [\"Lala\"]).",
             },
             manutentoreDisponibile: {
               type: "boolean",
               description:
-                "Se true (default), il manutentore riceve l'overflow / sostituisce assenze.",
+                "Manutentore Roma (pool centro + Domus Turno). Default true.",
+            },
+            manutentoreTenerifeDisponibile: {
+              type: "boolean",
+              description:
+                "Manutentore Tenerife (Mario). Default true.",
+            },
+            manutentoreTenerifeNome: {
+              type: "string",
+              description: "Nome manutentore Tenerife (default Mario).",
             },
             assenze: {
               type: "array",
               items: { type: "string" },
-              description: "Nomi cameriere assenti da escludere dallo staff.",
+              description: "Nomi assenti da escludere dallo staff.",
             },
           },
           additionalProperties: false,
@@ -429,57 +452,79 @@ function isMasterAccommodation(id) {
 
 /**
  * Config operativa strutture: cluster, tipo, spazi comuni (puliti TUTTI I GIORNI).
- * Cluster "turno" = Domus Turno (30 min a piedi, 2 cameriere dedicate).
+ * Domus Turno (DT) è nel cluster "centro" con tragittoPeso 0.3 (assegnabile a chi ha già altre strutture).
+ * bagnoInCamera: false → camere con bagno condiviso (pulizia camera = 0.6).
+ * appartamentoPeso: carico per l'unità appartamento intera.
  */
 const ACCOMMODATION_CONFIG = {
   "18972": {
     code: "ITC",
     cluster: "centro",
     tipo: "affittacamere",
+    bagnoInCamera: true,
+    appartamentoPeso: 5,
     spaziComuni: ["CUCINA", "CORRIDOIO"],
   },
   "43174": {
     code: "DF",
     cluster: "centro",
     tipo: "affittacamere",
+    bagnoInCamera: false,
+    appartamentoPeso: 3,
     spaziComuni: ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"],
   },
   "502641": {
     code: "NR",
     cluster: "centro",
     tipo: "affittacamere",
+    bagnoInCamera: false,
+    appartamentoPeso: 5,
     spaziComuni: ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"],
   },
   "352348": {
     code: "DC",
     cluster: "centro",
     tipo: "affittacamere",
+    bagnoInCamera: false,
+    appartamentoPeso: 3,
     spaziComuni: ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"],
   },
   "302412": {
     code: "DT",
-    cluster: "turno",
+    cluster: "centro",
     tipo: "affittacamere",
+    bagnoInCamera: true,
+    appartamentoPeso: 3,
+    /** Carico tragitto (~30 min a piedi) se la cameriera fa Domus Turno. */
+    tragittoPeso: 0.3,
     spaziComuni: ["AREA COMUNE"],
   },
   "737786": {
     code: "TEN109",
-    cluster: "centro",
+    cluster: "tenerife",
     tipo: "appartamento",
+    bagnoInCamera: true,
+    appartamentoPeso: 1,
     spaziComuni: [],
   },
 };
 
+/** Pesi carico turni (scala 0–1+, appartamenti possono superare 1). */
+const SPAZIO_COMUNE_PESI = {
+  "AREA COMUNE": 0.1,
+  CORRIDOIO: 0.1,
+  CUCINA: 0.5,
+  "BAGNO CONDIVISO": 0.4,
+};
 const TURNI_WEIGHTS = {
-  PARTENZA_CON_ENTRATA: 1.0,
-  PARTENZA_SENZA_ENTRATA: 1.0,
-  ENTRATA: 1.0,
-  FERMATA_CON_CAMBIO: 0.75,
-  APPARTAMENTO: 1.0,
-  SPOSTATA: 1.0,
-  FERMATA_SEMPLICE: 0.25,
-  VUOTA: 0.25,
-  SPAZI_COMUNI_BUNDLE: 0.5,
+  VUOTA: 0,
+  FERMATA_SEMPLICE: 0.1,
+  /** Peso base: la fermata con cambio è metà della pulizia completa della camera. */
+  FERMATA_CON_CAMBIO_FACTOR: 0.5,
+  CAMERA_BAGNO_CONDIVISO: 0.6,
+  CAMERA_BAGNO_IN_CAMERA: 1,
+  /** Tragitto verso Domus Turno (assegnabile a una cameriera che ha già fatto altre strutture). */
+  TRAGITTO_DOMUS_TURNO: 0.3,
 };
 const TURNI_MAX_CARICO = 6;
 
@@ -489,6 +534,8 @@ function getAccConfig(accId) {
       code: String(accId),
       cluster: "centro",
       tipo: "affittacamere",
+      bagnoInCamera: true,
+      appartamentoPeso: 1,
       spaziComuni: [],
     }
   );
@@ -501,6 +548,31 @@ function isAppartamentoUnit(cameraName = "") {
     n.includes("by local domus") ||
     n.includes("intero appartamento")
   );
+}
+
+/** Appartamento intero (struttura o unità): niente fermate. */
+function isAppartamentoContext(cfg, cameraName = "") {
+  return cfg?.tipo === "appartamento" || isAppartamentoUnit(cameraName);
+}
+
+function fullCleanRoomWeight(cfg) {
+  return cfg.bagnoInCamera
+    ? TURNI_WEIGHTS.CAMERA_BAGNO_IN_CAMERA
+    : TURNI_WEIGHTS.CAMERA_BAGNO_CONDIVISO;
+}
+
+function spaziComuniWeighted(cfg) {
+  if (cfg.tipo !== "affittacamere" || !cfg.spaziComuni?.length) return null;
+  const items = cfg.spaziComuni.map((x) => ({
+    nome: `${cfg.code} ${x}`,
+    tipo: x,
+    peso: SPAZIO_COMUNE_PESI[x] ?? 0.1,
+  }));
+  return {
+    items: items.map((i) => i.nome),
+    dettaglio: items,
+    peso: items.reduce((s, i) => s + i.peso, 0),
+  };
 }
 
 function isActiveArrival(res) {
@@ -1012,10 +1084,11 @@ function noteCandidates(res) {
  *
  * Classificazione per camera fisica nel giorno:
  *  - checkout oggi + checkin oggi        -> PARTENZA CON ENTRATA  (ROOM Np)
- *  - checkout oggi senza entrata         -> PARTENZA SENZA ENTRATA (ROOM)
+ *  - checkout oggi senza entrata         -> PARTENZA SENZA ENTRATA (ROOM, pulizia come entrata senza Np)
  *  - checkin oggi su camera prima libera -> ENTRATA / prep arrivo  (ROOM Np)
- *  - soggiorno in corso, giorno di cambio-> FERMATA CON CAMBIO      (ROOM*)
- *  - soggiorno in corso, no cambio       -> FERMATA semplice (aprire e controllare)
+ *  - soggiorno in corso, giorno di cambio-> FERMATA CON CAMBIO      (ROOM*) — solo affittacamere
+ *  - soggiorno in corso, no cambio       -> FERMATA semplice (aprire e controllare) — solo affittacamere
+ *  - appartamento in soggiorno           -> nessuna fermata
  *  - nessuna prenotazione                -> vuota (aprire e controllare)
  * @param {import('./mcp-hub.js').McpHub} hub
  */
@@ -1203,6 +1276,7 @@ async function computePulizie(hub, args = {}) {
 
   for (const accId of scopeIds) {
     const sName = nameById.get(accId) || accId;
+    const cfgAcc = getAccConfig(accId);
     const rooms = roomsByAcc.get(accId) || [];
     const here = enriched.filter((a) => a.physicalAcc === accId);
 
@@ -1220,6 +1294,7 @@ async function computePulizie(hub, args = {}) {
       const checkinRes = resHere.find((a) => a.isCheckin);
       const stayRes = resHere.find((a) => a.isStayOver);
       const code = shortRoomCode(room.name);
+      const isApt = isAppartamentoContext(cfgAcc, room.name);
 
       if (checkoutRes) {
         if (checkinRes) {
@@ -1230,8 +1305,11 @@ async function computePulizie(hub, args = {}) {
           );
           totali.partenzeConEntrata += 1;
         } else {
+          // Pulizia completa come entrata, senza numero persone
           partenzeSenzaEntrata.push(
-            entryFrom("PARTENZA_SENZA_ENTRATA", `${code}`, room.name, checkoutRes)
+            entryFrom("PARTENZA_SENZA_ENTRATA", `${code}`, room.name, checkoutRes, {
+              pax: null,
+            })
           );
           totali.partenzeSenzaEntrata += 1;
         }
@@ -1241,6 +1319,8 @@ async function computePulizie(hub, args = {}) {
         );
         totali.entrate += 1;
       } else if (stayRes) {
+        // Appartamenti: nessuna fermata (né con cambio né semplice)
+        if (isApt) continue;
         const cuts = linenChangeCutDays(stayRes.nights);
         const dayOffset = daysBetweenISO(stayRes.checkin, date);
         if (cuts.has(dayOffset)) {
@@ -1273,20 +1353,30 @@ async function computePulizie(hub, args = {}) {
         (a.pmsProduct && roomNameByAcc.get(a.bookingAcc)?.get(a.pmsProduct)) ||
         a.roomName ||
         null;
+      const ruolo = a.isCheckout
+        ? a.isCheckin
+          ? "PARTENZA_CON_ENTRATA"
+          : "PARTENZA_SENZA_ENTRATA"
+        : a.isCheckin
+          ? "ENTRATA"
+          : "FERMATA";
+      // Appartamenti: niente fermate anche se spostate
+      if (
+        ruolo === "FERMATA" &&
+        isAppartamentoContext(cfgAcc, origRoom || a.roomName || "")
+      ) {
+        continue;
+      }
       let tipo = "SPOSTATA";
       let code = "(da assegnare)";
       if (a.isCheckout && a.isCheckin) code = `(da assegnare) ${a.pax}p`;
       else if (a.isCheckin) code = `(da assegnare) ${a.pax}p`;
+      else if (ruolo === "PARTENZA_SENZA_ENTRATA") code = "(da assegnare)";
       spostate.push(
         entryFrom(tipo, code, "(camera da assegnare)", a, {
+          pax: ruolo === "PARTENZA_SENZA_ENTRATA" ? null : a.pax,
           origine: { struttura: nameById.get(a.bookingAcc) || a.bookingAcc, camera: origRoom },
-          ruolo: a.isCheckout
-            ? a.isCheckin
-              ? "PARTENZA_CON_ENTRATA"
-              : "PARTENZA_SENZA_ENTRATA"
-            : a.isCheckin
-              ? "ENTRATA"
-              : "FERMATA",
+          ruolo,
         })
       );
       totali.spostate += 1;
@@ -1315,12 +1405,12 @@ async function computePulizie(hub, args = {}) {
 
   return {
     rule:
-      "Lista pulizie del giorno per camera FISICA (PMS Tableau). PARTENZA=checkout; con entrata mostra 'ROOM Np', senza entrata 'ROOM'; FERMATA CON CAMBIO='ROOM*'; fermate semplici e vuote vanno solo aperte e controllate.",
+      "Lista pulizie del giorno per camera FISICA (PMS Tableau). PARTENZA=checkout; con entrata 'ROOM Np', senza entrata 'ROOM' (pulizia completa come entrata, senza Np). FERMATA CON CAMBIO='ROOM*' solo affittacamere (niente fermate negli appartamenti). Fermate semplici/vuote: aprire e controllare.",
     legenda: {
       "ROOM Np": "PARTENZA con entrata o ENTRATA: preparare la stanza per N persone (ordine per orario check-in)",
-      ROOM: "PARTENZA senza entrata: camera non riaffittata, preparare i letti come da procedura",
-      "ROOM*": "FERMATA CON CAMBIO: cambio biancheria bagno e letto",
-      "(non scritta)": "FERMATA semplice / camera vuota: aprire e controllare la pulizia",
+      ROOM: "PARTENZA senza entrata: pulizia completa come entrata, senza numero persone (anche appartamenti)",
+      "ROOM*": "FERMATA CON CAMBIO: cambio biancheria bagno e letto (solo affittacamere; appartamenti: nessuna fermata)",
+      "(non scritta)": "FERMATA semplice / camera vuota: aprire e controllare (appartamenti: niente fermate)",
     },
     date,
     scope: scopeIds.map((id) => ({ id, name: nameById.get(id) || id })),
@@ -1334,15 +1424,31 @@ async function octoratePulizie(hub, args = {}) {
   return computePulizie(hub, args);
 }
 
-function weightForRoomEntry(entry) {
-  if (isAppartamentoUnit(entry.camera)) return TURNI_WEIGHTS.APPARTAMENTO;
-  if (entry.tipo === "SPOSTATA") {
-    const ruolo = entry.ruolo || "";
-    if (ruolo.includes("PARTENZA") || ruolo === "ENTRATA") return TURNI_WEIGHTS.PARTENZA_CON_ENTRATA;
-    if (ruolo === "FERMATA") return TURNI_WEIGHTS.FERMATA_CON_CAMBIO;
-    return TURNI_WEIGHTS.SPOSTATA;
+function weightForRoomEntry(entry, cfg) {
+  const tipo = entry.tipo === "SPOSTATA" ? entry.ruolo || "FERMATA" : entry.tipo;
+  const isApt = isAppartamentoContext(cfg, entry.camera);
+  if (tipo === "VUOTA") return TURNI_WEIGHTS.VUOTA;
+  // Appartamenti: nessuna fermata
+  if (
+    isApt &&
+    (tipo === "FERMATA_SEMPLICE" ||
+      tipo === "FERMATA" ||
+      tipo === "FERMATA_CON_CAMBIO")
+  ) {
+    return TURNI_WEIGHTS.VUOTA;
   }
-  return TURNI_WEIGHTS[entry.tipo] ?? TURNI_WEIGHTS.FERMATA_SEMPLICE;
+  if (tipo === "FERMATA_SEMPLICE" || tipo === "FERMATA") {
+    return TURNI_WEIGHTS.FERMATA_SEMPLICE;
+  }
+
+  if (isApt) return cfg.appartamentoPeso ?? 1;
+
+  const full = fullCleanRoomWeight(cfg);
+  if (tipo === "FERMATA_CON_CAMBIO") {
+    return full * TURNI_WEIGHTS.FERMATA_CON_CAMBIO_FACTOR;
+  }
+  // PARTENZA_* (anche senza entrata), ENTRATA → pulizia completa
+  return full;
 }
 
 function normalizeStaffNames(input, defaultPrefix, defaultCount) {
@@ -1356,20 +1462,32 @@ function normalizeStaffNames(input, defaultPrefix, defaultCount) {
 
 /**
  * Costruisce i moduli (camere + spazi comuni) per struttura a partire da computePulizie.
- * Spazi comuni: SEMPRE inclusi ogni giorno per gli affittacamere.
+ * Spazi comuni: SEMPRE inclusi ogni giorno per gli affittacamere (pesi per voce).
+ * Una struttura = un blocco unico (non spezzabile).
  */
 function buildTurniModuli(pulizie) {
   const moduli = [];
   for (const [sName, sData] of Object.entries(pulizie.byStruttura || {})) {
     const cfg = getAccConfig(sData.id);
     const rooms = [];
-    const pushRoom = (entry, includeLight = false) => {
-      if (!includeLight && (entry.tipo === "FERMATA_SEMPLICE" || entry.tipo === "VUOTA")) return;
+    const pushRoom = (entry) => {
+      // Vuote: peso 0, non le elenchiamo nei turni (non contano)
+      if (entry.tipo === "VUOTA") return;
+      const tipo = entry.tipo === "SPOSTATA" ? entry.ruolo || "FERMATA" : entry.tipo;
+      // Appartamenti: niente fermate nei turni
+      if (
+        isAppartamentoContext(cfg, entry.camera) &&
+        (tipo === "FERMATA_SEMPLICE" ||
+          tipo === "FERMATA" ||
+          tipo === "FERMATA_CON_CAMBIO")
+      ) {
+        return;
+      }
       rooms.push({
         codifica: entry.codifica,
         camera: entry.camera,
         tipo: entry.tipo,
-        peso: weightForRoomEntry(entry),
+        peso: weightForRoomEntry(entry, cfg),
         guest: entry.guest,
         note: entry.note,
         arrivalTime: entry.arrivalTime,
@@ -1383,19 +1501,17 @@ function buildTurniModuli(pulizie) {
     for (const e of sData.partenzeSenzaEntrata || []) pushRoom(e);
     for (const e of sData.fermateConCambio || []) pushRoom(e);
     for (const e of sData.spostate || []) pushRoom(e);
-    // Fermate semplici / vuote: peso basso, solo "aprire e controllare"
-    for (const e of sData.aprireEControllare || []) pushRoom(e, true);
+    for (const e of sData.aprireEControllare || []) pushRoom(e);
 
-    const spaziComuni =
-      cfg.tipo === "affittacamere" && cfg.spaziComuni?.length
-        ? {
-            items: cfg.spaziComuni.map((x) => `${cfg.code} ${x}`),
-            peso: TURNI_WEIGHTS.SPAZI_COMUNI_BUNDLE,
-          }
-        : null;
-
+    const spaziComuni = spaziComuniWeighted(cfg);
     const caricoRooms = rooms.reduce((s, r) => s + r.peso, 0);
     const caricoSpazi = spaziComuni ? spaziComuni.peso : 0;
+    const tragitto =
+      cfg.tragittoPeso != null
+        ? cfg.tragittoPeso
+        : cfg.code === "DT"
+          ? TURNI_WEIGHTS.TRAGITTO_DOMUS_TURNO
+          : 0;
     moduli.push({
       accId: String(sData.id),
       name: sName,
@@ -1404,10 +1520,11 @@ function buildTurniModuli(pulizie) {
       tipo: cfg.tipo,
       rooms,
       spaziComuni,
-      carico: caricoRooms + caricoSpazi,
-      caricoPesante: rooms
-        .filter((r) => r.peso >= 0.75)
-        .reduce((s, r) => s + r.peso, 0) + caricoSpazi,
+      tragitto: tragitto || undefined,
+      tragittoNota: tragitto
+        ? `tragitto Domus Turno +${tragitto}`
+        : undefined,
+      carico: Math.round((caricoRooms + caricoSpazi + tragitto) * 100) / 100,
     });
   }
 
@@ -1417,6 +1534,13 @@ function buildTurniModuli(pulizie) {
     if (moduli.some((m) => m.accId === accId)) continue;
     const scopeHit = (pulizie.scope || []).find((s) => String(s.id) === accId);
     const name = scopeHit?.name || cfg.code;
+    const spaziComuni = spaziComuniWeighted(cfg);
+    const tragitto =
+      cfg.tragittoPeso != null
+        ? cfg.tragittoPeso
+        : cfg.code === "DT"
+          ? TURNI_WEIGHTS.TRAGITTO_DOMUS_TURNO
+          : 0;
     moduli.push({
       accId,
       name,
@@ -1424,12 +1548,13 @@ function buildTurniModuli(pulizie) {
       cluster: cfg.cluster,
       tipo: cfg.tipo,
       rooms: [],
-      spaziComuni: {
-        items: cfg.spaziComuni.map((x) => `${cfg.code} ${x}`),
-        peso: TURNI_WEIGHTS.SPAZI_COMUNI_BUNDLE,
-      },
-      carico: TURNI_WEIGHTS.SPAZI_COMUNI_BUNDLE,
-      caricoPesante: TURNI_WEIGHTS.SPAZI_COMUNI_BUNDLE,
+      spaziComuni,
+      tragitto: tragitto || undefined,
+      tragittoNota: tragitto
+        ? `tragitto Domus Turno +${tragitto}`
+        : undefined,
+      carico:
+        Math.round(((spaziComuni ? spaziComuni.peso : 0) + tragitto) * 100) / 100,
     });
   }
 
@@ -1437,16 +1562,22 @@ function buildTurniModuli(pulizie) {
 }
 
 /**
- * Bilancia i moduli di un cluster sulle cameriere (greedy per struttura).
- * Overflow oltre MAX_CARICO → manutentore.
+ * Bilancia i moduli di un cluster sulle cameriere.
+ * REGOLA: una struttura resta SEMPRE intera (camere + spazi comuni) sotto la stessa persona.
+ * Se non entra nel cap di nessuna cameriera → tutta al manutentore del cluster.
  */
-function balanceCluster(moduli, workerNames, manutentoreDisponibile) {
+function balanceCluster(
+  moduli,
+  workerNames,
+  manutentoreDisponibile,
+  manutentoreNome = "Manutentore"
+) {
   const workers = workerNames.map((name) => ({
     name,
     carico: 0,
     strutture: [],
   }));
-  const manutentore = { name: "Manutentore", carico: 0, strutture: [] };
+  const manutentore = { name: manutentoreNome, carico: 0, strutture: [] };
   const avvisi = [];
 
   if (!workers.length) {
@@ -1461,96 +1592,41 @@ function balanceCluster(moduli, workerNames, manutentoreDisponibile) {
     return { workers, manutentore, avvisi };
   }
 
-  const sorted = [...moduli].sort((a, b) => b.carico - a.carico);
+  const sorted = [
+    ...moduli.filter((m) => !m.tragitto).sort((a, b) => b.carico - a.carico),
+    // Domus Turno (con tragitto) dopo le altre: così può andare a chi ha già lavorato altrove
+    ...moduli.filter((m) => m.tragitto).sort((a, b) => b.carico - a.carico),
+  ];
   for (const m of sorted) {
     workers.sort((a, b) => a.carico - b.carico);
-    const least = workers[0];
-    const fits = least.carico + m.carico <= TURNI_MAX_CARICO;
-    if (fits) {
-      least.strutture.push(m);
-      least.carico += m.carico;
+    let fit;
+    if (m.tragitto) {
+      // Preferisci una cameriera che ha già altre strutture nel turno
+      fit = workers.find(
+        (w) => w.strutture.length > 0 && w.carico + m.carico <= TURNI_MAX_CARICO
+      );
+    }
+    if (!fit) {
+      fit = workers.find((w) => w.carico + m.carico <= TURNI_MAX_CARICO);
+    }
+    if (fit) {
+      fit.strutture.push(m);
+      fit.carico += m.carico;
       continue;
     }
-    // Non entra intera: spezza le camere se possibile (spazi comuni a una sola persona)
-    if (m.rooms.length > 1) {
-      const roomChunks = [...m.rooms].sort((a, b) => b.peso - a.peso);
-      const assignedRooms = [];
-      const overflowRooms = [];
-      let localLoad = least.carico;
-      const spaziW = m.spaziComuni ? m.spaziComuni.peso : 0;
-      // Prova a mettere spazi comuni sulla meno carica se c'è spazio
-      let takeSpazi = false;
-      if (m.spaziComuni && localLoad + spaziW <= TURNI_MAX_CARICO) {
-        takeSpazi = true;
-        localLoad += spaziW;
-      }
-      for (const room of roomChunks) {
-        if (localLoad + room.peso <= TURNI_MAX_CARICO) {
-          assignedRooms.push(room);
-          localLoad += room.peso;
-        } else {
-          overflowRooms.push(room);
-        }
-      }
-      if (assignedRooms.length || takeSpazi) {
-        const part = {
-          ...m,
-          rooms: assignedRooms,
-          spaziComuni: takeSpazi ? m.spaziComuni : null,
-          carico:
-            assignedRooms.reduce((s, r) => s + r.peso, 0) +
-            (takeSpazi ? spaziW : 0),
-          split: true,
-        };
-        least.strutture.push(part);
-        least.carico += part.carico;
-      }
-      const restSpazi = !takeSpazi && m.spaziComuni ? m.spaziComuni : null;
-      if (overflowRooms.length || restSpazi) {
-        const overflowPart = {
-          ...m,
-          rooms: overflowRooms,
-          spaziComuni: restSpazi,
-          carico:
-            overflowRooms.reduce((s, r) => s + r.peso, 0) +
-            (restSpazi ? restSpazi.peso : 0),
-          split: true,
-          noteSplit: "eccesso carico",
-        };
-        // Prova altre cameriere prima del manutentore
-        workers.sort((a, b) => a.carico - b.carico);
-        const next = workers.find(
-          (w) => w.carico + overflowPart.carico <= TURNI_MAX_CARICO
-        );
-        if (next) {
-          next.strutture.push(overflowPart);
-          next.carico += overflowPart.carico;
-        } else if (manutentoreDisponibile) {
-          manutentore.strutture.push(overflowPart);
-          manutentore.carico += overflowPart.carico;
-          avvisi.push(
-            `Overflow ${m.name}: parte al manutentore (cap ${TURNI_MAX_CARICO})`
-          );
-        } else {
-          least.strutture.push(overflowPart);
-          least.carico += overflowPart.carico;
-          avvisi.push(
-            `Overflow ${m.name} ma manutentore non disponibile: carico forzato su ${least.name}`
-          );
-        }
-      }
-      continue;
-    }
-
+    // Nessuna cameriera ha spazio per la struttura INTERA → manutentore (non spezzare)
     if (manutentoreDisponibile) {
       manutentore.strutture.push(m);
       manutentore.carico += m.carico;
-      avvisi.push(`Overflow ${m.name} → manutentore (cap ${TURNI_MAX_CARICO})`);
+      avvisi.push(
+        `Overflow ${m.name} (carico ${m.carico}) → ${manutentoreNome}: struttura tenuta intera (cap ${TURNI_MAX_CARICO})`
+      );
     } else {
+      const least = workers[0];
       least.strutture.push(m);
       least.carico += m.carico;
       avvisi.push(
-        `Cap superato su ${least.name} per ${m.name}; manutentore non disponibile`
+        `Cap superato su ${least.name} per ${m.name} (struttura intera); ${manutentoreNome} non disponibile`
       );
     }
   }
@@ -1560,7 +1636,7 @@ function balanceCluster(moduli, workerNames, manutentoreDisponibile) {
 
 /**
  * Proposta turni pulizie del giorno: bilancia camere + spazi comuni sulle cameriere.
- * Staff indicato di volta in volta (cameriere centro / Domus Turno / manutentore).
+ * Staff indicato di volta in volta (cameriere Roma / manutentore; DT nel pool Roma).
  * @param {import('./mcp-hub.js').McpHub} hub
  */
 export async function octorateTurni(hub, args = {}) {
@@ -1579,35 +1655,63 @@ export async function octorateTurni(hub, args = {}) {
     "Cameriera",
     2
   );
-  let turnoNames = normalizeStaffNames(
-    args.cameriereTurnoNomi?.length
-      ? args.cameriereTurnoNomi
-      : args.cameriereTurno != null
-        ? args.cameriereTurno
-        : 2,
-    "Cameriera Turno",
-    2
+  // Domus Turno è nel pool Roma (+0.3 tragitto). Staff dedicato Turno solo se esplicitamente passato.
+  let turnoDedicated = [];
+  if (args.cameriereTurnoNomi?.length || (args.cameriereTurno != null && Number(args.cameriereTurno) > 0)) {
+    turnoDedicated = normalizeStaffNames(
+      args.cameriereTurnoNomi?.length ? args.cameriereTurnoNomi : args.cameriereTurno,
+      "Cameriera Turno",
+      0
+    );
+  }
+  // Tenerife: team locale default Lala (pulizie) + Mario (manutenzioni)
+  let tenerifeNames = normalizeStaffNames(
+    args.cameriereTenerifeNomi?.length
+      ? args.cameriereTenerifeNomi
+      : args.cameriereTenerife != null
+        ? args.cameriereTenerife
+        : ["Lala"],
+    "Lala",
+    1
   );
+  const marioDisponibile =
+    args.manutentoreTenerifeDisponibile == null
+      ? true
+      : Boolean(args.manutentoreTenerifeDisponibile);
+  const marioNome = args.manutentoreTenerifeNome || "Mario";
+
   if (assenze.size) {
     centroNames = centroNames.filter((n) => !assenze.has(n.toLowerCase()));
-    turnoNames = turnoNames.filter((n) => !assenze.has(n.toLowerCase()));
+    turnoDedicated = turnoDedicated.filter((n) => !assenze.has(n.toLowerCase()));
+    tenerifeNames = tenerifeNames.filter((n) => !assenze.has(n.toLowerCase()));
   }
 
   const manutentoreDisponibile =
     args.manutentoreDisponibile == null ? true : Boolean(args.manutentoreDisponibile);
 
-  const centroModuli = moduli.filter((m) => m.cluster === "centro");
-  const turnoModuli = moduli.filter((m) => m.cluster === "turno");
+  const romaNames = [...centroNames, ...turnoDedicated];
+  const romaModuli = moduli.filter((m) => m.cluster === "centro");
+  const tenerifeModuli = moduli.filter((m) => m.cluster === "tenerife");
 
-  const centro = balanceCluster(centroModuli, centroNames, manutentoreDisponibile);
-  const turno = balanceCluster(turnoModuli, turnoNames, manutentoreDisponibile);
+  const roma = balanceCluster(
+    romaModuli,
+    romaNames,
+    manutentoreDisponibile,
+    "Manutentore"
+  );
+  const tenerife = balanceCluster(
+    tenerifeModuli,
+    tenerifeNames,
+    marioDisponibile,
+    marioNome
+  );
 
-  const avvisi = [...centro.avvisi, ...turno.avvisi];
-  if (!centroNames.length) {
-    avvisi.push("Nessuna cameriera disponibile per il cluster centro");
+  const avvisi = [...roma.avvisi, ...tenerife.avvisi];
+  if (!romaNames.length) {
+    avvisi.push("Nessuna cameriera disponibile per Roma (centro + Domus Turno)");
   }
-  if (turnoModuli.length && !turnoNames.length) {
-    avvisi.push("Nessuna cameriera disponibile per Domus Turno");
+  if (tenerifeModuli.length && !tenerifeNames.length) {
+    avvisi.push("Nessuna cameriera disponibile per Tenerife (default: Lala)");
   }
   if (assenze.size) {
     avvisi.push(`Assenze indicate: ${[...assenze].join(", ")}`);
@@ -1624,63 +1728,87 @@ export async function octorateTurni(hub, args = {}) {
       camere: s.rooms.map((r) => ({
         codifica: r.codifica,
         tipo: r.tipo,
+        peso: r.peso,
         note: r.note,
         arrivalTime: r.arrivalTime,
       })),
       spaziComuni: s.spaziComuni?.items || [],
-      split: s.split || undefined,
+      spaziComuniDettaglio: s.spaziComuni?.dettaglio || undefined,
+      tragitto: s.tragitto || undefined,
+      tragittoNota: s.tragittoNota || undefined,
     })),
   });
 
+  const formatManutentore = (man, cluster) => {
+    if (!man?.strutture?.length) return null;
+    return {
+      nome: man.name,
+      cluster,
+      carico: Math.round(man.carico * 100) / 100,
+      strutture: man.strutture.map((s) => ({
+        struttura: s.name,
+        code: s.code,
+        carico: Math.round(s.carico * 100) / 100,
+        camere: s.rooms.map((r) => ({
+          codifica: r.codifica,
+          tipo: r.tipo,
+          peso: r.peso,
+          note: r.note,
+        })),
+        spaziComuni: s.spaziComuni?.items || [],
+        spaziComuniDettaglio: s.spaziComuni?.dettaglio || undefined,
+        tragitto: s.tragitto || undefined,
+        tragittoNota: s.tragittoNota || undefined,
+      })),
+    };
+  };
+
   const perCameriera = [
-    ...centro.workers.map((w) => formatWorker(w, "centro")),
-    ...turno.workers.map((w) => formatWorker(w, "turno")),
+    ...roma.workers.map((w) => formatWorker(w, "centro")),
+    ...tenerife.workers.map((w) => formatWorker(w, "tenerife")),
   ];
 
-  const manutentoreParts = [];
-  if (centro.manutentore.strutture.length) manutentoreParts.push(...centro.manutentore.strutture);
-  if (turno.manutentore.strutture.length) manutentoreParts.push(...turno.manutentore.strutture);
+  const manutentori = [
+    formatManutentore(manutentoreDisponibile ? roma.manutentore : null, "centro"),
+    formatManutentore(marioDisponibile ? tenerife.manutentore : null, "tenerife"),
+  ].filter(Boolean);
+
   const manutentore =
-    manutentoreParts.length && manutentoreDisponibile
-      ? {
-          nome: "Manutentore",
-          carico:
-            Math.round(
-              (centro.manutentore.carico + turno.manutentore.carico) * 100
-            ) / 100,
-          strutture: manutentoreParts.map((s) => ({
-            struttura: s.name,
-            code: s.code,
-            carico: Math.round(s.carico * 100) / 100,
-            camere: s.rooms.map((r) => ({
-              codifica: r.codifica,
-              tipo: r.tipo,
-              note: r.note,
-            })),
-            spaziComuni: s.spaziComuni?.items || [],
-          })),
-        }
+    manutentoreDisponibile && roma.manutentore.strutture.length
+      ? formatManutentore(roma.manutentore, "centro")
       : null;
 
   return {
     rule:
-      "Proposta turni: chi pulisce una camera di affittacamere fa anche gli spazi comuni. Spazi comuni SEMPRE ogni giorno. Domus Turno = cluster separato. Overflow / assenze → manutentore.",
+      "Proposta turni: struttura sempre intera. Domus Turno nel pool Roma (+0.3 tragitto, preferita a chi ha già altre strutture). Tenerife: Lala/Mario. Overflow → manutentore del cluster.",
     date,
-    pesi: TURNI_WEIGHTS,
+    pesi: {
+      ...TURNI_WEIGHTS,
+      spaziComuni: SPAZIO_COMUNE_PESI,
+      appartamenti: Object.fromEntries(
+        Object.values(ACCOMMODATION_CONFIG).map((c) => [c.code, c.appartamentoPeso])
+      ),
+      cameraBagnoInCamera: TURNI_WEIGHTS.CAMERA_BAGNO_IN_CAMERA,
+      cameraBagnoCondiviso: TURNI_WEIGHTS.CAMERA_BAGNO_CONDIVISO,
+      tragittoDomusTurno: TURNI_WEIGHTS.TRAGITTO_DOMUS_TURNO,
+    },
     maxCarico: TURNI_MAX_CARICO,
     staff: {
-      centro: centroNames,
-      turno: turnoNames,
+      centro: romaNames,
+      tenerife: tenerifeNames,
       manutentoreDisponibile,
+      manutentoreTenerife: marioDisponibile ? marioNome : null,
       assenze: [...assenze],
     },
     carichi: {
-      centro: Math.round(centroModuli.reduce((s, m) => s + m.carico, 0) * 100) / 100,
-      turno: Math.round(turnoModuli.reduce((s, m) => s + m.carico, 0) * 100) / 100,
+      centro: Math.round(romaModuli.reduce((s, m) => s + m.carico, 0) * 100) / 100,
+      tenerife:
+        Math.round(tenerifeModuli.reduce((s, m) => s + m.carico, 0) * 100) / 100,
       totale: Math.round(moduli.reduce((s, m) => s + m.carico, 0) * 100) / 100,
     },
     perCameriera,
     manutentore,
+    manutentori,
     avvisi: avvisi.length ? avvisi : undefined,
     pulizieTotali: pulizie.totali,
   };

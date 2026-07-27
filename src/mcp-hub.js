@@ -77,9 +77,9 @@ export class McpHub {
       return;
     }
 
-    let accessToken;
+    // Fail-fast se non autenticati; il fetch sotto rinnova il token a ogni request.
     try {
-      accessToken = await getOctorateAccessToken();
+      await getOctorateAccessToken();
     } catch (err) {
       console.error(`[mcp:octorate] ${err.message}`);
       console.warn(
@@ -88,12 +88,24 @@ export class McpHub {
       return;
     }
 
+    const prev = this.servers.get("octorate");
+    if (prev) {
+      try {
+        await prev.client.close();
+      } catch {
+        /* ignore */
+      }
+      this.servers.delete("octorate");
+    }
+
     const url = process.env.OCTORATE_MCP_URL || "https://mcp.octorate.com/mcp";
+    // Bearer dinamico: evita token scaduto fissato all'avvio (processi PM2 longevi).
     const transport = new StreamableHTTPClientTransport(new URL(url), {
-      requestInit: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      fetch: async (input, init = {}) => {
+        const accessToken = await getOctorateAccessToken();
+        const headers = new Headers(init.headers || {});
+        headers.set("Authorization", `Bearer ${accessToken}`);
+        return fetch(input, { ...init, headers });
       },
     });
 
@@ -150,21 +162,37 @@ export class McpHub {
     };
   }
 
-  async callTool(server, toolName, args = {}) {
+  async callTool(server, toolName, args = {}, { _retried } = {}) {
     const entry = this.servers.get(server);
     if (!entry) throw new Error(`Server MCP sconosciuto: ${server}`);
-    const result = await entry.client.callTool({
-      name: toolName,
-      arguments: args,
-    });
-    const text = textFromToolResult(result);
-    if (result?.isError) {
-      throw new Error(text || `Errore tool ${server}/${toolName}`);
-    }
     try {
-      return text ? JSON.parse(text) : result;
-    } catch {
-      return { raw: text };
+      const result = await entry.client.callTool({
+        name: toolName,
+        arguments: args,
+      });
+      const text = textFromToolResult(result);
+      if (result?.isError) {
+        throw new Error(text || `Errore tool ${server}/${toolName}`);
+      }
+      try {
+        return text ? JSON.parse(text) : result;
+      } catch {
+        return { raw: text };
+      }
+    } catch (err) {
+      const msg = String(err?.message || err);
+      const authFail =
+        server === "octorate" &&
+        !_retried &&
+        /unauthoriz|401|token|expired|forbidden|403/i.test(msg);
+      if (authFail) {
+        console.warn(
+          `[mcp:octorate] auth error su ${toolName}, riconnetto… (${msg})`
+        );
+        await this.connectOctorate();
+        return this.callTool(server, toolName, args, { _retried: true });
+      }
+      throw err;
     }
   }
 
