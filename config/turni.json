@@ -1,0 +1,23 @@
+{
+  "maxCarico": 6,
+  "spaziComuniPesi": {
+    "AREA COMUNE": 0.1,
+    "CORRIDOIO": 0.1,
+    "CUCINA": 0.5,
+    "BAGNO CONDIVISO": 0.4
+  },
+  "weights": {
+    "VUOTA": 0,
+    "FERMATA_SEMPLICE": 0.1,
+    "FERMATA_CON_CAMBIO_FACTOR": 0.5,
+    "CAMERA_BAGNO_CONDIVISO": 0.6,
+    "CAMERA_BAGNO_IN_CAMERA": 1,
+    "TRAGITTO_DOMUS_TURNO": 0.3
+  },
+  "staffDefaults": {
+    "cameriereCentro": 2,
+    "tenerifeNomi": ["Lala"],
+    "manutentoreTenerifeNome": "Mario",
+    "manutentoreRomaNome": "Manutentore"
+  }
+}

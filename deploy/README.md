@@ -12,3 +12,5 @@ Comandi quotidiani (dal PC, root del repo):
 | `npm run ship:watch` | Sync a ogni salvataggio |
 
 Config locale (gitignored): `deploy/ship.local.json` con `{ "host": "IP" }`.
+
+UI Admin: `https://<host-sslip>/admin/` — richiede `ADMIN_TOKEN` nel `.env` del server.

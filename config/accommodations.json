@@ -1,0 +1,60 @@
+{
+  "masterAccommodationIds": ["538465"],
+  "accommodations": {
+    "18972": {
+      "code": "ITC",
+      "name": "In the center you too",
+      "cluster": "centro",
+      "tipo": "affittacamere",
+      "bagnoInCamera": true,
+      "appartamentoPeso": 5,
+      "spaziComuni": ["CUCINA", "CORRIDOIO"]
+    },
+    "43174": {
+      "code": "DF",
+      "name": "Domus Forum",
+      "cluster": "centro",
+      "tipo": "affittacamere",
+      "bagnoInCamera": false,
+      "appartamentoPeso": 3,
+      "spaziComuni": ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"]
+    },
+    "502641": {
+      "code": "NR",
+      "name": "Domus NR",
+      "cluster": "centro",
+      "tipo": "affittacamere",
+      "bagnoInCamera": false,
+      "appartamentoPeso": 5,
+      "spaziComuni": ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"]
+    },
+    "352348": {
+      "code": "DC",
+      "name": "Domus Cavour",
+      "cluster": "centro",
+      "tipo": "affittacamere",
+      "bagnoInCamera": false,
+      "appartamentoPeso": 3,
+      "spaziComuni": ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"]
+    },
+    "302412": {
+      "code": "DT",
+      "name": "Domus Turno",
+      "cluster": "centro",
+      "tipo": "affittacamere",
+      "bagnoInCamera": true,
+      "appartamentoPeso": 3,
+      "tragittoPeso": 0.3,
+      "spaziComuni": ["AREA COMUNE"]
+    },
+    "737786": {
+      "code": "TEN109",
+      "name": "Tenerife 109",
+      "cluster": "tenerife",
+      "tipo": "appartamento",
+      "bagnoInCamera": true,
+      "appartamentoPeso": 1,
+      "spaziComuni": []
+    }
+  }
+}

@@ -108,6 +108,8 @@ async function syncCode(cfg) {
   // Rebuild tar args cleanly
   const files = [
     "src",
+    "config",
+    "rules",
     "package.json",
     "package-lock.json",
     "RULES.md",

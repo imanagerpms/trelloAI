@@ -1,29 +1,43 @@
 import { TrelloClient, formatCard, formatBoardOverview } from "./trello-client.js";
 import { schedulaModuli } from "./schedula-moduli.js";
+import { resolveBoardIds, resolvePeople } from "./runtime-config.js";
 
-export const BOARD_IDS = {
-  manutenzioni:
-    process.env.TRELLO_MANUTENZIONI_BOARD_ID || "618e372daa42cb68df7d7485",
-  gestione:
-    process.env.TRELLO_GESTIONE_BOARD_ID || "640a5c772f6cbeefe413aa88",
-  amministrazione:
-    process.env.TRELLO_AMMINISTRAZIONE_BOARD_ID || "622a4c04b6f44e46f420f78f",
-};
+/** Board IDs: env > config/boards.json (Proxy = sempre aggiornato dopo save UI). */
+export const BOARD_IDS = new Proxy(
+  {},
+  {
+    get(_t, prop) {
+      if (typeof prop !== "string") return undefined;
+      return resolveBoardIds()[prop];
+    },
+    ownKeys() {
+      return Object.keys(resolveBoardIds());
+    },
+    getOwnPropertyDescriptor(_t, prop) {
+      const v = resolveBoardIds()[prop];
+      if (v == null) return undefined;
+      return { configurable: true, enumerable: true, value: v };
+    },
+  }
+);
 
-const KNOWN_MEMBERS = [
-  {
-    names: ["costache", "ciurar", "manutentore"],
-    id: process.env.TRELLO_MANUTENTORE_ID || "69bb36372d40c70721754e53",
-  },
-  {
-    names: ["daniele", "bocci", "danielebocci"],
-    id: process.env.TRELLO_DANIELE_ID || "54dc67131a3fdbb01c491b00",
-  },
-  {
-    names: ["meri", "lisna", "merilisna"],
-    id: process.env.TRELLO_MERI_ID || "62dfbe086691c476c1692f91",
-  },
-];
+function knownMembers() {
+  const people = resolvePeople();
+  return [
+    {
+      names: ["costache", "ciurar", "manutentore"],
+      id: people.manutentore?.id,
+    },
+    {
+      names: ["daniele", "bocci", "danielebocci"],
+      id: people.daniele?.id,
+    },
+    {
+      names: ["meri", "lisna", "merilisna"],
+      id: people.meri?.id,
+    },
+  ].filter((m) => m.id);
+}
 
 function client() {
   return new TrelloClient(process.env.TRELLO_API_KEY, process.env.TRELLO_TOKEN);
@@ -109,7 +123,7 @@ async function resolveMemberIds(boardId, names) {
 
   for (const raw of names) {
     const q = String(raw).trim().toLowerCase();
-    const known = KNOWN_MEMBERS.find((m) =>
+    const known = knownMembers().find((m) =>
       m.names.some((n) => q.includes(n) || n.includes(q))
     );
     if (known?.id) {

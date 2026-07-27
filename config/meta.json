@@ -1,0 +1,39 @@
+{
+  "rules": [
+    {
+      "id": "super-manager",
+      "file": "super-manager.md",
+      "title": "Super Manager",
+      "area": "core",
+      "includeInSystemPrompt": true
+    },
+    {
+      "id": "manutenzioni",
+      "file": "manutenzioni.md",
+      "title": "Manutenzioni",
+      "area": "manutenzioni",
+      "includeInSystemPrompt": true
+    },
+    {
+      "id": "customer-care",
+      "file": "customer-care.md",
+      "title": "Customer care",
+      "area": "customer-care",
+      "includeInSystemPrompt": true
+    },
+    {
+      "id": "pulizie",
+      "file": "pulizie.md",
+      "title": "Pulizie e turni",
+      "area": "pulizie",
+      "includeInSystemPrompt": true
+    },
+    {
+      "id": "interazione-clienti",
+      "file": "interazione-clienti.md",
+      "title": "Interazione clienti",
+      "area": "interazione-clienti",
+      "includeInSystemPrompt": true
+    }
+  ]
+}

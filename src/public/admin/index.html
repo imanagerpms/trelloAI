@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Super Manager — Config</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/style.css" />
+</head>
+<body>
+  <div id="login-view" class="login hidden">
+    <form id="login-form" class="login-card">
+      <p class="brand">Super Manager</p>
+      <h1>Config</h1>
+      <p class="muted">Inserisci l’ADMIN_TOKEN da .env</p>
+      <input id="token-input" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN" required />
+      <button type="submit">Entra</button>
+      <p id="login-error" class="err hidden"></p>
+    </form>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="side">
+      <p class="brand">Super Manager</p>
+      <nav id="nav"></nav>
+      <button type="button" id="logout" class="linkish">Esci</button>
+    </aside>
+    <main>
+      <header class="top">
+        <h1 id="page-title">Panoramica</h1>
+        <p id="page-sub" class="muted"></p>
+      </header>
+      <div id="content"></div>
+      <p id="toast" class="toast hidden"></p>
+    </main>
+  </div>
+  <script src="/admin/app.js" type="module"></script>
+</body>
+</html>

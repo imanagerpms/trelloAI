@@ -1,21 +1,35 @@
 # TrelloAI — istruzioni per gli agenti
 
-Progetto MCP + skill per gestire board Trello secondo regole in `RULES.md`, `GESTIONE-MANUTENZIONI.md` e `RULES-GESTIONE-ADMIN.md`.
+Progetto MCP + bot Telegram **Super Manager** per Manutenzioni, Customer care, Pulizie e Interazione clienti.
+
+## Regole operative
+
+Fonte di verità: cartella [`rules/`](rules/README.md) (editabili anche dalla UI `/admin`).
+
+| Area | File |
+|------|------|
+| Core | `rules/super-manager.md` |
+| Manutenzioni | `rules/manutenzioni.md` |
+| Customer care | `rules/customer-care.md` |
+| Pulizie / turni | `rules/pulizie.md` |
+| Interazione clienti (+ AIBridge stub) | `rules/interazione-clienti.md` |
+
+Config strutturata: [`config/`](config/) (`accommodations.json`, `turni.json`, `boards.json`).
+
+Alias legacy in root (`RULES.md`, `GESTIONE-MANUTENZIONI.md`, `RULES-GESTIONE-ADMIN.md`) puntano a `rules/`.
 
 ## Uso tipico
 
-- Riepilogo board / task: leggi le regole e usa i tool `trello_*` (o i prompt MCP `stato-trello`, `gestisci-trello`).
-- Schedula moduli liberi: segui `GESTIONE-MANUTENZIONI.md` e/o `npm run schedula -- <sigle> --scadenza <data>`.
-- Schedula Gestione & Amministrazione: segui `RULES-GESTIONE-ADMIN.md` e il prompt `schedula-gestione` se disponibile.
+- Riepilogo board / task: leggi le regole in `rules/` e usa i tool `trello_*`.
+- Schedula moduli liberi: `rules/manutenzioni.md` e/o `npm run schedula -- <sigle> --scadenza <data>`.
+- Config runtime: UI Admin (`ADMIN_TOKEN` in `.env`) su `/admin/`.
 
 Skill di riferimento: `.cursor/skills/trello/SKILL.md`.
 
 ## Cursor Cloud specific instructions
 
-Questo repo è pensato per Cloud Agents (app iOS / [cursor.com/agents](https://cursor.com/agents)).
-
 1. All’avvio l’ambiente esegue `npm install` (vedi `.cursor/environment.json`).
-2. Le credenziali Trello **non** sono nel repo: devono essere Secrets nel dashboard Cursor (`TRELLO_API_KEY`, `TRELLO_TOKEN`, e gli eventuali ID board/membri da `.env.example`).
-3. Il server MCP è in `.cursor/mcp.json` (`node src/server.js`). In cloud deve partire con le variabili d’ambiente già presenti; in locale `src/server.js` carica anche `.env`.
-4. Prima di modificare molte card o archiviare, chiedi conferma all’utente (anche da mobile).
+2. Le credenziali Trello **non** sono nel repo: Secrets nel dashboard Cursor (`TRELLO_API_KEY`, `TRELLO_TOKEN`, …).
+3. Il server MCP è in `.cursor/mcp.json` (`node src/server.js`).
+4. Prima di modificare molte card o archiviare, chiedi conferma all’utente.
 5. Rispondi sempre in italiano, salvo diversa richiesta.

@@ -1,0 +1,36 @@
+{
+  "boards": {
+    "manutenzioni": {
+      "id": "618e372daa42cb68df7d7485",
+      "envKey": "TRELLO_MANUTENZIONI_BOARD_ID",
+      "label": "Manutenzioni"
+    },
+    "gestione": {
+      "id": "640a5c772f6cbeefe413aa88",
+      "envKey": "TRELLO_GESTIONE_BOARD_ID",
+      "label": "Gestione"
+    },
+    "amministrazione": {
+      "id": "622a4c04b6f44e46f420f78f",
+      "envKey": "TRELLO_AMMINISTRAZIONE_BOARD_ID",
+      "label": "Amministrazione"
+    }
+  },
+  "people": {
+    "manutentore": {
+      "id": "69bb36372d40c70721754e53",
+      "name": "Costache Ciurar",
+      "envKey": "TRELLO_MANUTENTORE_ID"
+    },
+    "daniele": {
+      "id": "54dc67131a3fdbb01c491b00",
+      "name": "Daniele Bocci",
+      "envKey": "TRELLO_DANIELE_ID"
+    },
+    "meri": {
+      "id": "62dfbe086691c476c1692f91",
+      "name": "Meri",
+      "envKey": "TRELLO_MERI_ID"
+    }
+  }
+}

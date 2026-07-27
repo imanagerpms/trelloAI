@@ -1,87 +1,17 @@
-import { BOARD_IDS } from "./telegram-tools.js";
 import { schedulaModuli } from "./schedula-moduli.js";
 import {
   buildMcpToolDefinitions,
   executeMcpTool,
 } from "./mcp-hub.js";
-
-const SYSTEM_PROMPT = `Sei Super Manager (@manager_888_bot), property manager AI di un portafoglio di circa 500 appartamenti.
-
-Ruolo:
-- Supervisioni operazioni: manutenzioni (Trello), prenotazioni/disponibilità/messaggi ospiti (Octorate), gestione operativa.
-- Agisci tramite i SERVER MCP collegati — non inventare dati.
-- I messaggi che ricevi sono già filtrati: in gruppo arrivano solo se ti hanno taggato @manager_888_bot o in reply a te. Quindi rispondi SEMPRE al contenuto, senza rifiutare per "mancanza di tag".
-- Italiano, concreto, breve.
-
-## MCP disponibili
-
-1) server **trello** — board/card/liste/commenti/etichette.
-2) server **octorate** — PMS (~200 tool).
-
-## Scorciatoie (preferisci queste)
-
-- Prenotazioni in arrivo oggi/domani/prossimi giorni → tool **octorate_arrivi** (NON fare loop di mcp_search_tools). Mostra SOLO prenotazioni attive (mai CANCELLED / PROPOSAL).
-- Camere libere / occupate / disponibilità → tool **octorate_camere** (fonte: readCalendar. Regola: LIBERA = availability>0 per tutte le notti richieste; OCCUPATA = availability 0 in almeno una notte, con motivo prenotazione o stop-sell). NON usare findPmsRoom né Availability_Check per la disponibilità.
-- Camere da pulire in una data → tool **octorate_pulizie** (fonte PMS Tableau, non la roomRate). Presenta la lista secondo la LEGGENDA PULIZIE qui sotto. Se una camera risulta "da assegnare", segnalalo.
-- Turni pulizie del giorno → tool **octorate_turni** (proposta di assegnazione cameriere; non scrive su Trello). Estrai lo staff dal messaggio.
-- Schedula moduli Manutenzioni → **schedula_moduli**.
-
-## Modello dati Octorate (3 livelli)
-
-Ogni prenotazione va letta su 3 livelli:
-1. **Struttura** = accommodation: codice numerico + nome (es. 18972 "In the center you too"). Le strutture sono in RETE: una query ne restituisce anche di altre, quindi conta sempre l'accommodation.id reale della singola prenotazione.
-2. **Derivata/camera** = product (tipo/derivata logica) + pmsProduct (camera fisica) + roomName.
-3. **Tipologia** = stato prenotazione (CONFIRMED, ACTIVE, …).
-
-Quando elenchi prenotazioni o camere, raggruppa per struttura e indica la derivata (roomName) e lo stato.
-
-## Leggenda pulizie (per octorate_pulizie)
-
-Presenta la lista raggruppata per struttura, in QUESTO ordine di esecuzione:
-1. **PARTENZA CON ENTRATA** e **ENTRATA** → codifica \`ROOM Np\` (es. \`ITC#1 2p\`). Preparare la stanza per N persone, seguendo l'ordine per orario di check-in. (campo partenzeConEntrata + entrate)
-2. **PARTENZA SENZA ENTRATA** → codifica \`ROOM\` (es. \`ITC#1\`, senza numero persone). Stessa pulizia completa di un'entrata, ma senza preparare per N ospiti. Vale anche per gli appartamenti. Da fare DOPO le partenze/entrate con Np. (campo partenzeSenzaEntrata)
-3. **FERMATA CON CAMBIO** → codifica \`ROOM*\` (es. \`ITC#1*\`). Cambiare biancheria bagno e letto, rassettare, pulire a terra, svuotare cestino, rabboccare sapone/carta. Solo affittacamere: negli **appartamenti non si fanno fermate**. (campo fermateConCambio)
-4. **FERMATA semplice** e **camere vuote** → NON si scrivono nella lista. Vanno comunque aperte e controllate (rassettare, pulizia veloce, cestino, sapone/carta). Menzionale solo se richiesto. Negli appartamenti niente fermate. (campo aprireEControllare)
-
-Note e richieste speciali: se una camera ha \`note\` con info utili alle cameriere (late/early check-in, orario arrivo, letti separati, rose/vino/transfer/colazione/deposito bagagli...), aggiungile tra parentesi quadre dopo la codifica, sintetizzate: es. \`DC#201 2p [arrivo h20, letti separati]\`. Ignora il testo standard non rilevante (es. clausole di cancellazione).
-
-## Turni pulizie (per octorate_turni)
-
-Quando chiedono i turni / chi fa cosa oggi:
-1. Estrai lo staff dal messaggio: numero o nomi cameriere Roma/centro (default 2), Tenerife (default Lala), assenze, se i manutentori sono disponibili (Roma + Mario a Tenerife). Domus Turno NON ha staff dedicato: lo fa una cameriera del pool Roma (passa cameriereTurno solo se l'utente lo chiede esplicitamente).
-2. Chiama **octorate_turni** con quei parametri (NON inventare lo staff Roma se non indicato: chiedi o usa default 2 cameriere; Tenerife default Lala/Mario).
-3. Presenta la proposta per cameriera:
-   - cluster (centro = Roma inclusa Domus Turno / Tenerife)
-   - per ogni struttura assegnata UN SOLO blocco: tutte le camere + spazi comuni insieme (MAI spezzare la stessa struttura tra più persone)
-   - se c'è Domus Turno, evidenzia il +0.3 di tragitto nel carico
-   - note speciali tra [ ] se presenti
-   - carico stimato
-4. Sezioni manutentori se c'è overflow: **Manutentore** (Roma) e **Mario** (Tenerife), da \`manutentori\` / \`manutentore\`.
-5. Riporta eventuali avvisi (assenze, overflow, cap carico).
-
-Regole operative già applicate dal tool:
-- chi pulisce camere di un affittacamere fa anche gli spazi comuni di quella struttura;
-- una struttura compare una sola volta sotto una sola persona;
-- spazi comuni SEMPRE ogni giorno (anche senza arrivi): NR/DF/DC = cucina+corridoio+bagno; ITC = cucina+corridoio; DT = area comune;
-- Domus Turno è nel pool Roma: lo può fare una cameriera che ha già altre strutture, con +0.3 carico tragitto;
-- Tenerife TEN109 = cluster separato: pulizie **Lala**, manutenzioni/overflow **Mario**;
-- overflow oltre cap o assenza → manutentore del cluster.
-
-## Altri tool MCP
-
-1. mcp_search_tools UNA volta con query mirata (es. reservation, availability, message)
-2. mcp_describe_tool se serve lo schema
-3. mcp_call_tool per eseguire
-NON ripetere mcp_search_tools più di 2 volte sulla stessa richiesta.
-
-Board Trello: manutenzioni ${BOARD_IDS.manutenzioni}, gestione ${BOARD_IDS.gestione}, amministrazione ${BOARD_IDS.amministrazione}.
-Persone: Costache, Daniele, Meri.
-
-Regole:
-- Non inventare ID.
-- Delete → conferma esplicita.
-- Date: oggi | domani | GG/MM/AAAA.
-- Dopo un'azione: riassumi in modo leggibile (ospite, struttura, check-in/out, stato).`;
+import {
+  buildSystemPrompt,
+  getAccommodationMap,
+  getMasterAccommodationIds,
+  getSpazioComunePesi,
+  getStaffDefaults,
+  getTurniMaxCarico,
+  getTurniWeights,
+} from "./runtime-config.js";
 
 function getLlmConfig() {
   if (process.env.OPENAI_API_KEY) {
@@ -444,93 +374,17 @@ const ACTIVE_ARRIVAL_STATUSES = new Set([
  * Strutture da ignorare: account "master" che vedono l'intera rete e
  * duplicherebbero i risultati (es. "local domus" 538465).
  */
-const MASTER_ACCOMMODATION_IDS = new Set(["538465"]);
-
 function isMasterAccommodation(id) {
-  return MASTER_ACCOMMODATION_IDS.has(String(id));
+  return getMasterAccommodationIds().has(String(id));
 }
 
 /**
- * Config operativa strutture: cluster, tipo, spazi comuni (puliti TUTTI I GIORNI).
- * Domus Turno (DT) è nel cluster "centro" con tragittoPeso 0.3 (assegnabile a chi ha già altre strutture).
- * bagnoInCamera: false → camere con bagno condiviso (pulizia camera = 0.6).
- * appartamentoPeso: carico per l'unità appartamento intera.
+ * Config operativa strutture: da config/accommodations.json (UI Admin).
  */
-const ACCOMMODATION_CONFIG = {
-  "18972": {
-    code: "ITC",
-    cluster: "centro",
-    tipo: "affittacamere",
-    bagnoInCamera: true,
-    appartamentoPeso: 5,
-    spaziComuni: ["CUCINA", "CORRIDOIO"],
-  },
-  "43174": {
-    code: "DF",
-    cluster: "centro",
-    tipo: "affittacamere",
-    bagnoInCamera: false,
-    appartamentoPeso: 3,
-    spaziComuni: ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"],
-  },
-  "502641": {
-    code: "NR",
-    cluster: "centro",
-    tipo: "affittacamere",
-    bagnoInCamera: false,
-    appartamentoPeso: 5,
-    spaziComuni: ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"],
-  },
-  "352348": {
-    code: "DC",
-    cluster: "centro",
-    tipo: "affittacamere",
-    bagnoInCamera: false,
-    appartamentoPeso: 3,
-    spaziComuni: ["CUCINA", "CORRIDOIO", "BAGNO CONDIVISO"],
-  },
-  "302412": {
-    code: "DT",
-    cluster: "centro",
-    tipo: "affittacamere",
-    bagnoInCamera: true,
-    appartamentoPeso: 3,
-    /** Carico tragitto (~30 min a piedi) se la cameriera fa Domus Turno. */
-    tragittoPeso: 0.3,
-    spaziComuni: ["AREA COMUNE"],
-  },
-  "737786": {
-    code: "TEN109",
-    cluster: "tenerife",
-    tipo: "appartamento",
-    bagnoInCamera: true,
-    appartamentoPeso: 1,
-    spaziComuni: [],
-  },
-};
-
-/** Pesi carico turni (scala 0–1+, appartamenti possono superare 1). */
-const SPAZIO_COMUNE_PESI = {
-  "AREA COMUNE": 0.1,
-  CORRIDOIO: 0.1,
-  CUCINA: 0.5,
-  "BAGNO CONDIVISO": 0.4,
-};
-const TURNI_WEIGHTS = {
-  VUOTA: 0,
-  FERMATA_SEMPLICE: 0.1,
-  /** Peso base: la fermata con cambio è metà della pulizia completa della camera. */
-  FERMATA_CON_CAMBIO_FACTOR: 0.5,
-  CAMERA_BAGNO_CONDIVISO: 0.6,
-  CAMERA_BAGNO_IN_CAMERA: 1,
-  /** Tragitto verso Domus Turno (assegnabile a una cameriera che ha già fatto altre strutture). */
-  TRAGITTO_DOMUS_TURNO: 0.3,
-};
-const TURNI_MAX_CARICO = 6;
-
 function getAccConfig(accId) {
+  const map = getAccommodationMap();
   return (
-    ACCOMMODATION_CONFIG[String(accId)] || {
+    map[String(accId)] || {
       code: String(accId),
       cluster: "centro",
       tipo: "affittacamere",
@@ -539,6 +393,18 @@ function getAccConfig(accId) {
       spaziComuni: [],
     }
   );
+}
+
+function turniWeights() {
+  return getTurniWeights();
+}
+
+function spazioComunePesi() {
+  return getSpazioComunePesi();
+}
+
+function turniMaxCarico() {
+  return getTurniMaxCarico();
 }
 
 function isAppartamentoUnit(cameraName = "") {
@@ -557,8 +423,8 @@ function isAppartamentoContext(cfg, cameraName = "") {
 
 function fullCleanRoomWeight(cfg) {
   return cfg.bagnoInCamera
-    ? TURNI_WEIGHTS.CAMERA_BAGNO_IN_CAMERA
-    : TURNI_WEIGHTS.CAMERA_BAGNO_CONDIVISO;
+    ? turniWeights().CAMERA_BAGNO_IN_CAMERA
+    : turniWeights().CAMERA_BAGNO_CONDIVISO;
 }
 
 function spaziComuniWeighted(cfg) {
@@ -566,7 +432,7 @@ function spaziComuniWeighted(cfg) {
   const items = cfg.spaziComuni.map((x) => ({
     nome: `${cfg.code} ${x}`,
     tipo: x,
-    peso: SPAZIO_COMUNE_PESI[x] ?? 0.1,
+    peso: spazioComunePesi()[x] ?? 0.1,
   }));
   return {
     items: items.map((i) => i.nome),
@@ -1427,7 +1293,7 @@ async function octoratePulizie(hub, args = {}) {
 function weightForRoomEntry(entry, cfg) {
   const tipo = entry.tipo === "SPOSTATA" ? entry.ruolo || "FERMATA" : entry.tipo;
   const isApt = isAppartamentoContext(cfg, entry.camera);
-  if (tipo === "VUOTA") return TURNI_WEIGHTS.VUOTA;
+  if (tipo === "VUOTA") return turniWeights().VUOTA;
   // Appartamenti: nessuna fermata
   if (
     isApt &&
@@ -1435,17 +1301,17 @@ function weightForRoomEntry(entry, cfg) {
       tipo === "FERMATA" ||
       tipo === "FERMATA_CON_CAMBIO")
   ) {
-    return TURNI_WEIGHTS.VUOTA;
+    return turniWeights().VUOTA;
   }
   if (tipo === "FERMATA_SEMPLICE" || tipo === "FERMATA") {
-    return TURNI_WEIGHTS.FERMATA_SEMPLICE;
+    return turniWeights().FERMATA_SEMPLICE;
   }
 
   if (isApt) return cfg.appartamentoPeso ?? 1;
 
   const full = fullCleanRoomWeight(cfg);
   if (tipo === "FERMATA_CON_CAMBIO") {
-    return full * TURNI_WEIGHTS.FERMATA_CON_CAMBIO_FACTOR;
+    return full * turniWeights().FERMATA_CON_CAMBIO_FACTOR;
   }
   // PARTENZA_* (anche senza entrata), ENTRATA → pulizia completa
   return full;
@@ -1510,7 +1376,7 @@ function buildTurniModuli(pulizie) {
       cfg.tragittoPeso != null
         ? cfg.tragittoPeso
         : cfg.code === "DT"
-          ? TURNI_WEIGHTS.TRAGITTO_DOMUS_TURNO
+          ? turniWeights().TRAGITTO_DOMUS_TURNO
           : 0;
     moduli.push({
       accId: String(sData.id),
@@ -1529,7 +1395,7 @@ function buildTurniModuli(pulizie) {
   }
 
   // Assicura che tutte le strutture affittacamere in config abbiano almeno gli spazi comuni
-  for (const [accId, cfg] of Object.entries(ACCOMMODATION_CONFIG)) {
+  for (const [accId, cfg] of Object.entries(getAccommodationMap())) {
     if (cfg.tipo !== "affittacamere" || !cfg.spaziComuni?.length) continue;
     if (moduli.some((m) => m.accId === accId)) continue;
     const scopeHit = (pulizie.scope || []).find((s) => String(s.id) === accId);
@@ -1539,7 +1405,7 @@ function buildTurniModuli(pulizie) {
       cfg.tragittoPeso != null
         ? cfg.tragittoPeso
         : cfg.code === "DT"
-          ? TURNI_WEIGHTS.TRAGITTO_DOMUS_TURNO
+          ? turniWeights().TRAGITTO_DOMUS_TURNO
           : 0;
     moduli.push({
       accId,
@@ -1603,11 +1469,11 @@ function balanceCluster(
     if (m.tragitto) {
       // Preferisci una cameriera che ha già altre strutture nel turno
       fit = workers.find(
-        (w) => w.strutture.length > 0 && w.carico + m.carico <= TURNI_MAX_CARICO
+        (w) => w.strutture.length > 0 && w.carico + m.carico <= turniMaxCarico()
       );
     }
     if (!fit) {
-      fit = workers.find((w) => w.carico + m.carico <= TURNI_MAX_CARICO);
+      fit = workers.find((w) => w.carico + m.carico <= turniMaxCarico());
     }
     if (fit) {
       fit.strutture.push(m);
@@ -1619,7 +1485,7 @@ function balanceCluster(
       manutentore.strutture.push(m);
       manutentore.carico += m.carico;
       avvisi.push(
-        `Overflow ${m.name} (carico ${m.carico}) → ${manutentoreNome}: struttura tenuta intera (cap ${TURNI_MAX_CARICO})`
+        `Overflow ${m.name} (carico ${m.carico}) → ${manutentoreNome}: struttura tenuta intera (cap ${turniMaxCarico()})`
       );
     } else {
       const least = workers[0];
@@ -1650,10 +1516,11 @@ export async function octorateTurni(hub, args = {}) {
       .filter(Boolean)
   );
 
+  const staff = getStaffDefaults();
   let centroNames = normalizeStaffNames(
     args.cameriereNomi?.length ? args.cameriereNomi : args.cameriere,
     "Cameriera",
-    2
+    staff.cameriereCentro ?? 2
   );
   // Domus Turno è nel pool Roma (+0.3 tragitto). Staff dedicato Turno solo se esplicitamente passato.
   let turnoDedicated = [];
@@ -1664,21 +1531,21 @@ export async function octorateTurni(hub, args = {}) {
       0
     );
   }
-  // Tenerife: team locale default Lala (pulizie) + Mario (manutenzioni)
+  // Tenerife: team locale default da config
   let tenerifeNames = normalizeStaffNames(
     args.cameriereTenerifeNomi?.length
       ? args.cameriereTenerifeNomi
       : args.cameriereTenerife != null
         ? args.cameriereTenerife
-        : ["Lala"],
-    "Lala",
+        : staff.tenerifeNomi || ["Lala"],
+    staff.tenerifeNomi?.[0] || "Lala",
     1
   );
   const marioDisponibile =
     args.manutentoreTenerifeDisponibile == null
       ? true
       : Boolean(args.manutentoreTenerifeDisponibile);
-  const marioNome = args.manutentoreTenerifeNome || "Mario";
+  const marioNome = args.manutentoreTenerifeNome || staff.manutentoreTenerifeNome || "Mario";
 
   if (assenze.size) {
     centroNames = centroNames.filter((n) => !assenze.has(n.toLowerCase()));
@@ -1697,7 +1564,7 @@ export async function octorateTurni(hub, args = {}) {
     romaModuli,
     romaNames,
     manutentoreDisponibile,
-    "Manutentore"
+    staff.manutentoreRomaNome || "Manutentore"
   );
   const tenerife = balanceCluster(
     tenerifeModuli,
@@ -1783,16 +1650,16 @@ export async function octorateTurni(hub, args = {}) {
       "Proposta turni: struttura sempre intera. Domus Turno nel pool Roma (+0.3 tragitto, preferita a chi ha già altre strutture). Tenerife: Lala/Mario. Overflow → manutentore del cluster.",
     date,
     pesi: {
-      ...TURNI_WEIGHTS,
-      spaziComuni: SPAZIO_COMUNE_PESI,
+      ...turniWeights(),
+      spaziComuni: spazioComunePesi(),
       appartamenti: Object.fromEntries(
-        Object.values(ACCOMMODATION_CONFIG).map((c) => [c.code, c.appartamentoPeso])
+        Object.values(getAccommodationMap()).map((c) => [c.code, c.appartamentoPeso])
       ),
-      cameraBagnoInCamera: TURNI_WEIGHTS.CAMERA_BAGNO_IN_CAMERA,
-      cameraBagnoCondiviso: TURNI_WEIGHTS.CAMERA_BAGNO_CONDIVISO,
-      tragittoDomusTurno: TURNI_WEIGHTS.TRAGITTO_DOMUS_TURNO,
+      cameraBagnoInCamera: turniWeights().CAMERA_BAGNO_IN_CAMERA,
+      cameraBagnoCondiviso: turniWeights().CAMERA_BAGNO_CONDIVISO,
+      tragittoDomusTurno: turniWeights().TRAGITTO_DOMUS_TURNO,
     },
-    maxCarico: TURNI_MAX_CARICO,
+    maxCarico: turniMaxCarico(),
     staff: {
       centro: romaNames,
       tenerife: tenerifeNames,
@@ -1843,7 +1710,7 @@ async function runLocalOrMcp(hub, name, args) {
  */
 export async function runSuperManager(hub, history, userMessage) {
   const messages = [
-    { role: "system", content: `${SYSTEM_PROMPT}\n\n${buildNowContext()}` },
+    { role: "system", content: `${buildSystemPrompt()}\n\n${buildNowContext()}` },
     ...history.filter((m) => m.role === "user" || m.role === "assistant"),
     { role: "user", content: userMessage },
   ];

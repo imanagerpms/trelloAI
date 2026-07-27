@@ -10,6 +10,7 @@ import {
   formatBoardOverview,
   formatCard,
 } from "./trello-client.js";
+import { readRuleFileWithFallback, buildSystemPrompt } from "./runtime-config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
@@ -23,11 +24,17 @@ function getClient() {
 }
 
 function readRules() {
-  const rulesPath = join(projectRoot, "RULES.md");
-  if (!existsSync(rulesPath)) {
-    return "Nessun file RULES.md trovato. Crea RULES.md nella root del progetto con le tue regole di gestione task.";
+  const fromRules =
+    readRuleFileWithFallback("super-manager.md", "RULES.md") ||
+    readRuleFileWithFallback("manutenzioni.md", "GESTIONE-MANUTENZIONI.md");
+  if (fromRules) {
+    try {
+      return buildSystemPrompt();
+    } catch {
+      return fromRules;
+    }
   }
-  return readFileSync(rulesPath, "utf8");
+  return "Nessun file regole trovato. Crea rules/super-manager.md o RULES.md.";
 }
 
 function jsonResult(data) {
@@ -146,10 +153,9 @@ server.registerPrompt(
     },
   },
   async ({ moduliLiberi, dataScadenza }) => {
-    const schedulaPath = join(projectRoot, "GESTIONE-MANUTENZIONI.md");
-    const schedulaRules = existsSync(schedulaPath)
-      ? readFileSync(schedulaPath, "utf8")
-      : "";
+    const schedulaRules =
+      readRuleFileWithFallback("manutenzioni.md", "GESTIONE-MANUTENZIONI.md") ||
+      "";
 
     return {
       messages: [

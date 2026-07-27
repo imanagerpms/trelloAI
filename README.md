@@ -1,6 +1,6 @@
 # TrelloAI
 
-Integrazione Trello + Cursor AI tramite **Model Context Protocol (MCP)**. L'AI può leggere la board, capire lo stato dei task e gestirli secondo regole che definisci tu in `RULES.md`.
+Integrazione Trello + Cursor AI tramite **Model Context Protocol (MCP)**, più bot Telegram **Super Manager** (Octorate, pulizie, turni). Le regole operative vivono in `rules/` e si editano anche dalla UI Admin.
 
 ## Setup rapido
 
@@ -72,7 +72,7 @@ Quali task scadono questa settimana?
 
 ### Personalizza le regole
 
-Modifica **`RULES.md`** con le tue convenzioni: nomi liste, limiti WIP, priorità, etichette, quando chiedere conferma. L'AI le applica automaticamente.
+Modifica i file in **`rules/`** (o usa la UI Admin) per Manutenzioni, Customer care, Pulizie, Interazione clienti. Config strutture/pesi/board in **`config/`**.
 
 ## Tool disponibili
 
@@ -120,6 +120,15 @@ Poi testi su Telegram. Commit/push su GitHub solo quando la versione è ok.
 
 **Server attuale:** `151.115.166.171` (Milano) → https://151-115-166-171.sslip.io  
 Dettagli: [deploy/README.md](deploy/README.md)
+
+### UI Admin (config Super Manager)
+
+1. Imposta `ADMIN_TOKEN=...` nel `.env` del server (`npm run ship:env`)
+2. Apri https://151-115-166-171.sslip.io/admin/
+3. Modifica regole markdown per area, strutture Octorate, pesi turni, board Trello
+4. I secret (API key) restano solo in `.env` — la UI mostra solo lo stato
+
+Aree: Manutenzioni · Customer care · Pulizie · Interazione clienti (stub AIBridge).
 
 ### OAuth Octorate (una tantum)
 
