@@ -37,11 +37,18 @@ description: >-
 
 ## Gestione Manutenzioni
 
-Quando l'utente gestisce manutenzioni o dice **"schedula i compiti per i moduli liberi"** + lista sigle + **data scadenza**:
+Quando l'utente chiede **quali moduli sono liberi** (o una data / “domani”):
 
 1. Leggi `rules/manutenzioni.md`
-2. Esegui `npm run schedula -- <sigle> --scadenza <data>` oppure regola unica
-3. Report in italiano
+2. Verifica disponibilità con **octorate_camere** (non chiedere l’elenco all’utente)
+3. Riporta le sigle LIBERE in italiano
+
+Quando l'utente dice **"schedula i compiti per i moduli liberi"** + **data scadenza** (con o senza lista sigle):
+
+1. Leggi `rules/manutenzioni.md`
+2. Se mancano le sigle: ottienile da **octorate_camere** per quella data
+3. Esegui `npm run schedula -- <sigle> --scadenza <data>` oppure regola unica
+4. Report in italiano
 
 **Regola unica:** modulo libero → IN ESECUZIONE | non libero + periodico → Periodici | non libero + altro → Settimana
 

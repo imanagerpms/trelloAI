@@ -33,7 +33,7 @@ Un **modulo** è una camera, un corridoio, una cucina o un’area comune, identi
 | Cucina | `NR CUCINA`, `DC CUCINA` |
 | Area comune | `DT AREA COMUNE` |
 
-Un modulo è **libero** quando l’utente lo indica esplicitamente (ospiti usciti, area accessibile). Solo allora i relativi task possono entrare in **IN ESECUZIONE**.
+Un modulo è **libero** quando Octorate lo indica come accessibile (ospiti assenti / area disponibile) per la data richiesta. Fonte: tool **octorate_camere** (`readCalendar`: LIBERA = availability>0 tutte le notti; OCCUPATA = 0 in almeno una notte). Non chiedere all’utente l’elenco dei moduli liberi — verificare sempre su Octorate. Solo i moduli liberi possono entrare in **IN ESECUZIONE**.
 
 ## Schedulazione moduli (regola unica)
 
@@ -77,9 +77,10 @@ Formati data: `16/07/2026`, `2026-07-16`, `domani`
 ## Comportamento AI
 
 1. Leggere questo file prima di agire sulla board Manutenzioni
-2. Ispezionare lo stato prima di modificare
-3. Schedulazione: tool **schedula_moduli** / `npm run schedula` oppure regola unica con tool Trello
-4. Non toccare **Template** e **Terminati**
-5. Conferma prima di archiviare o spostare più di 5 card (salvo schedulazione esplicita)
-6. Commentare ogni spostamento non banale
-7. Report finale in italiano
+2. Se servono i moduli liberi (per data o “domani”): chiamare **octorate_camere** e riportare le camere/aree LIBERE — non chiedere l’elenco all’utente
+3. Ispezionare lo stato Trello prima di modificare
+4. Schedulazione: tool **schedula_moduli** / `npm run schedula` oppure regola unica con tool Trello (sigle = moduli liberi da Octorate, o fornite esplicitamente dall’utente)
+5. Non toccare **Template** e **Terminati**
+6. Conferma prima di archiviare o spostare più di 5 card (salvo schedulazione esplicita)
+7. Commentare ogni spostamento non banale
+8. Report finale in italiano
