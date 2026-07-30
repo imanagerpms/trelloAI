@@ -12,6 +12,14 @@ import {
   getTurniMaxCarico,
   getTurniWeights,
 } from "./runtime-config.js";
+import {
+  DEFAULT_FINESTRA_TIME,
+  normalizeArrivalTime,
+  pmsNameToModuleSigla,
+  romeLocalToUtcIso,
+  shortRoomCode,
+} from "./module-sigla.js";
+import { humanizeError, serviceFromToolName, toUserFacingError } from "./user-errors.js";
 
 function getLlmConfig() {
   if (process.env.OPENAI_API_KEY) {
@@ -79,7 +87,7 @@ function localToolDefinitions() {
       function: {
         name: "octorate_camere",
         description:
-          "Stato camere (libere/occupate) per una struttura in una data o range. Fonte: readCalendar. LIBERA = availability>0 per tutte le notti; OCCUPATA = availability 0 in almeno una notte (motivo: prenotazione o stop-sell). Non usa findPmsRoom né Availability_Check per la disponibilità.",
+          "Stato camere per una struttura in una data/range. LIBERA = availability>0 tutte le notti; FINESTRA = checkout+checkin lo stesso giorno (manutenzione tra ospiti, scadenza=arrivalTime); OCCUPATA = altrimenti non disponibile. Espone libere[] e finestre[] con sigla Manutenzioni.",
         parameters: {
           type: "object",
           properties: {
@@ -207,12 +215,17 @@ function localToolDefinitions() {
       function: {
         name: "schedula_moduli",
         description:
-          "Schedula task Manutenzioni per moduli liberi (IN ESECUZIONE / Periodici / Settimana)",
+          "Schedula task Manutenzioni per moduli liberi/finestra (IN ESECUZIONE / Periodici / Settimana). moduleDues: scadenze per-modulo HH:MM (finestre turnover).",
         parameters: {
           type: "object",
           properties: {
             modules: { type: "array", items: { type: "string" } },
             due: { type: "string" },
+            moduleDues: {
+              type: "object",
+              additionalProperties: { type: "string" },
+              description: 'Es. {"NR3":"15:00","ITC301":"14:30"} — orario Europe/Rome sul giorno di due',
+            },
             dryRun: { type: "boolean" },
           },
           required: ["modules", "due"],
@@ -245,7 +258,10 @@ async function callOpenAI(messages, { apiKey, model, baseUrl }) {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error?.message || `OpenAI error ${res.status}`);
+    throw toUserFacingError(
+      new Error(data.error?.message || `OpenAI error ${res.status}`),
+      { service: "llm", status: res.status }
+    );
   }
   return data.choices?.[0]?.message;
 }
@@ -316,7 +332,10 @@ async function callAnthropic(messages, { apiKey, model }) {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error?.message || `Anthropic error ${res.status}`);
+    throw toUserFacingError(
+      new Error(data.error?.message || `Anthropic error ${res.status}`),
+      { service: "llm", status: res.status }
+    );
   }
 
   const text = (data.content || [])
@@ -557,7 +576,12 @@ async function octorateArrivi(hub, args = {}) {
           const rows = Array.isArray(raw) ? raw : raw?.data || raw?.content || [];
           return { ok: true, rows };
         } catch (e) {
-          return { ok: false, id, name: nameById.get(id) || id, error: e.message };
+          return {
+            ok: false,
+            id,
+            name: nameById.get(id) || id,
+            error: humanizeError(e, { service: "octorate" }),
+          };
         }
       })
     );
@@ -687,11 +711,12 @@ async function readCalendarAll(hub, accId, dateFrom, dateTo) {
 }
 
 /**
- * Camere PMS libere/occupate per una struttura, basate sulla disponibilità reale.
+ * Camere PMS libere/occupate/finestra per una struttura, basate sulla disponibilità reale.
  *  - Fonte disponibilità: readCalendar (availability per prodotto/giorno).
  *  - Nomi camere fisiche: findPmsRoom (mappate via parentId -> id prodotto calendario).
- *  - findReservations serve solo ad annotare il MOTIVO dell'occupazione (ospite vs stop-sell).
- * Regola: LIBERA = availability > 0 per tutte le notti del range; OCCUPATA = availability 0 in almeno una notte.
+ *  - findReservations: motivo occupazione + rilevamento FINESTRA (checkout+checkin lo stesso giorno).
+ * Regola: LIBERA = availability > 0 per tutte le notti; FINESTRA = non libera ma checkout+checkin su `date`;
+ *         OCCUPATA = altrimenti non disponibile.
  * @param {import('./mcp-hub.js').McpHub} hub
  */
 async function octorateCamere(hub, args = {}) {
@@ -755,7 +780,7 @@ async function octorateCamere(hub, args = {}) {
   // Disponibilità reale dal calendario (fonte autorevole)
   const calByProduct = await readCalendarAll(hub, accId, date, endDate);
 
-  // Prenotazioni attive di QUESTA struttura, per annotare il motivo dell'occupazione
+  // Prenotazioni attive di QUESTA struttura (motivo + finestre turnover)
   const stayRaw = await hub.callTool("octorate", "findReservations", {
     accommodation: accId,
     type: "STAY",
@@ -783,7 +808,10 @@ async function octorateCamere(hub, args = {}) {
       },
       checkin: r.checkin,
       checkout: r.checkout,
+      arrivalTime: r.arrivalTime || "",
       channel: r.channelName,
+      isCheckout: dateOnly(r.checkout) === date,
+      isCheckin: dateOnly(r.checkin) === date,
     };
     if (!roomId) {
       unassigned.push(brief);
@@ -813,20 +841,43 @@ async function octorateCamere(hub, args = {}) {
     const disponibile = availAllNights;
 
     const reservations = resByRoom.get(String(room.id)) || [];
+    const checkoutRes = reservations.find((r) => r.isCheckout);
+    const checkinRes = reservations.find((r) => r.isCheckin);
+    const isFinestra = !disponibile && Boolean(checkoutRes && checkinRes);
+
     let motivo;
-    if (!disponibile) {
+    if (isFinestra) {
+      motivo = "finestra turnover (checkout + checkin)";
+    } else if (!disponibile) {
       if (reservations.length) motivo = "prenotazione";
       else if (anyStopSell) motivo = "stop-sell";
       else if (hasCalendar) motivo = "chiusa / restrizione";
       else motivo = "nessun dato calendario";
     }
 
+    const arrivalTime =
+      normalizeArrivalTime(checkinRes?.arrivalTime) ||
+      (isFinestra ? DEFAULT_FINESTRA_TIME : null);
+    const scadenzaSuggerita =
+      isFinestra && arrivalTime ? romeLocalToUtcIso(date, arrivalTime) : null;
+    const sigla = pmsNameToModuleSigla(room.name);
+
+    let stato = "OCCUPATA";
+    if (disponibile) stato = "LIBERA";
+    else if (isFinestra) stato = "FINESTRA";
+
     return {
       id: room.id,
       name: room.name,
+      sigla,
       parentId: room.parentId,
-      stato: disponibile ? "LIBERA" : "OCCUPATA",
+      stato,
       disponibile,
+      finestra: isFinestra,
+      arrivalTime: isFinestra ? arrivalTime : undefined,
+      ospiteInUscita: isFinestra ? checkoutRes?.guest : undefined,
+      ospiteInEntrata: isFinestra ? checkinRes?.guest : undefined,
+      scadenzaSuggerita: scadenzaSuggerita || undefined,
       availAllNights,
       availSomeNights,
       motivo,
@@ -850,12 +901,13 @@ async function octorateCamere(hub, args = {}) {
     note: "Unità non in findPmsRoom di questa struttura",
   }));
 
-  const libere = camere.filter((c) => c.disponibile);
-  const occupate = camere.filter((c) => !c.disponibile);
+  const libere = camere.filter((c) => c.stato === "LIBERA");
+  const finestre = camere.filter((c) => c.stato === "FINESTRA");
+  const occupate = camere.filter((c) => c.stato === "OCCUPATA");
 
   return {
-    rule: "LIBERA = readCalendar availability>0 per tutte le notti del range; OCCUPATA = availability 0 in almeno una notte (prenotazione o stop-sell)",
-    source: "readCalendar",
+    rule: "LIBERA = availability>0 tutte le notti; FINESTRA = checkout+checkin su date (scadenza=arrivalTime o 14:00 Roma); OCCUPATA = altrimenti non disponibile",
+    source: "readCalendar + findReservations",
     accommodation: { id: accId, name: accName },
     date,
     endDate,
@@ -863,13 +915,24 @@ async function octorateCamere(hub, args = {}) {
     totals: {
       rooms: camere.length,
       libere: libere.length,
+      finestre: finestre.length,
       occupate: occupate.length,
       unassignedReservations: unassigned.length,
     },
-    libere: libere.map((c) => ({ id: c.id, name: c.name })),
+    libere: libere.map((c) => ({ id: c.id, name: c.name, sigla: c.sigla })),
+    finestre: finestre.map((c) => ({
+      id: c.id,
+      name: c.name,
+      sigla: c.sigla,
+      arrivalTime: c.arrivalTime,
+      ospiteInUscita: c.ospiteInUscita,
+      ospiteInEntrata: c.ospiteInEntrata,
+      scadenzaSuggerita: c.scadenzaSuggerita,
+    })),
     occupate: occupate.map((c) => ({
       id: c.id,
       name: c.name,
+      sigla: c.sigla,
       motivo: c.motivo,
       guests: c.reservations.map((r) => r.guest),
     })),
@@ -914,14 +977,6 @@ function linenChangeCutDays(N) {
     cuts.add(cum);
   }
   return cuts;
-}
-
-/** Codice camera compatto per la comunicazione pulizie (es. "ITC #1 (Tripla BP)" -> "ITC#1"). */
-function shortRoomCode(name) {
-  if (!name) return "?";
-  const base = String(name).split("(")[0].trim();
-  const compact = base.replace(/\s*#\s*/, "#").replace(/\s+/g, "");
-  return compact || base;
 }
 
 /** Candidati note/richieste speciali da campi strutturati (senza scandire le chat). */
@@ -1008,7 +1063,7 @@ async function computePulizie(hub, args = {}) {
             queryAcc: t.id,
             name: nameById.get(t.id) || t.id,
             type: t.type,
-            error: e.message,
+            error: humanizeError(e, { service: "octorate" }),
           };
         }
       })
@@ -1685,6 +1740,7 @@ async function runLocalOrMcp(hub, name, args) {
   if (name === "schedula_moduli") {
     return schedulaModuli(args.modules, {
       dueDate: args.due,
+      moduleDues: args.moduleDues || undefined,
       dryRun: Boolean(args.dryRun),
     });
   }
@@ -1708,7 +1764,7 @@ async function runLocalOrMcp(hub, name, args) {
  * @param {Array<{role:string,content:string}>} history
  * @param {string} userMessage
  */
-export async function runSuperManager(hub, history, userMessage) {
+export async function runIManager(hub, history, userMessage) {
   const messages = [
     { role: "system", content: `${buildSystemPrompt()}\n\n${buildNowContext()}` },
     ...history.filter((m) => m.role === "user" || m.role === "assistant"),
@@ -1747,8 +1803,16 @@ export async function runSuperManager(hub, history, userMessage) {
         result = await runLocalOrMcp(hub, name, args);
         actions.push({ name, args, ok: true });
       } catch (err) {
-        result = { error: err.message };
-        actions.push({ name, args, ok: false, error: err.message });
+        const userMessage = humanizeError(err, {
+          service: serviceFromToolName(name, args),
+        });
+        console.error(`[tool:${name}] ${err.message}`);
+        result = {
+          error: userMessage,
+          ok: false,
+          technical: err.technical || err.message,
+        };
+        actions.push({ name, args, ok: false, error: userMessage });
       }
 
       messages.push({

@@ -20,16 +20,16 @@ description: >-
 
 | Prompt | Quando usarlo |
 |--------|---------------|
-| `gestisci-trello` | Gestione attiva: legge le regole Super Manager e applica |
+| `gestisci-trello` | Gestione attiva: legge le regole iManager e applica |
 | `stato-trello` | Solo lettura: riepilogo stato board |
-| `schedula-moduli` | Schedula task per moduli liberi (`rules/manutenzioni.md`) |
+| `schedula-moduli` | Schedula task per moduli liberi/finestra (`rules/manutenzioni.md`) |
 | `schedula-gestione` | Schedula task Daniele su Gestione & Amministrazione (`rules/customer-care.md`) |
 
-## Aree Super Manager
+## Aree iManager
 
 | Area | File |
 |------|------|
-| Core | `rules/super-manager.md` |
+| Core | `rules/imanager.md` |
 | Manutenzioni | `rules/manutenzioni.md` |
 | Customer care | `rules/customer-care.md` |
 | Pulizie | `rules/pulizie.md` |
@@ -41,16 +41,16 @@ Quando l'utente chiede **quali moduli sono liberi** (o una data / “domani”):
 
 1. Leggi `rules/manutenzioni.md`
 2. Verifica disponibilità con **octorate_camere** (non chiedere l’elenco all’utente)
-3. Riporta le sigle LIBERE in italiano
+3. Riporta in italiano le sigle **LIBERE** e le **FINESTRE** (checkout+checkin stesso giorno, con `arrivalTime`)
 
 Quando l'utente dice **"schedula i compiti per i moduli liberi"** + **data scadenza** (con o senza lista sigle):
 
 1. Leggi `rules/manutenzioni.md`
-2. Se mancano le sigle: ottienile da **octorate_camere** per quella data
-3. Esegui `npm run schedula -- <sigle> --scadenza <data>` oppure regola unica
+2. Se mancano le sigle: ottienile da **octorate_camere** per quella data (`libere` + `finestre`, campo `sigla`)
+3. Esegui `npm run schedula -- <sigle> --scadenza <data>` e, se ci sono finestre, aggiungi `--finestra SIGLA=HH:MM,...` (usa `arrivalTime` / `scadenzaSuggerita` da Octorate; default 14:00)
 4. Report in italiano
 
-**Regola unica:** modulo libero → IN ESECUZIONE | non libero + periodico → Periodici | non libero + altro → Settimana
+**Regola unica:** modulo accessibile (LIBERA o FINESTRA) → IN ESECUZIONE | non accessibile + periodico → Periodici | non accessibile + altro → Settimana
 
 **Mai toccare:** Template, Terminati
 

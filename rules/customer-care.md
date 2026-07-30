@@ -1,6 +1,6 @@
 # Customer care
 
-Area Super Manager per **Gestione** e **Amministrazione** (Trello) e supporto operativo interno. Non confondere con le chat ospiti (vedi `interazione-clienti.md`).
+Area iManager per **Gestione** e **Amministrazione** (Trello) e supporto operativo interno. Non confondere con le chat ospiti (vedi `interazione-clienti.md`).
 
 ## Board
 

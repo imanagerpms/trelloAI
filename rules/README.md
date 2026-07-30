@@ -1,10 +1,10 @@
-# Regole Super Manager
+# Regole iManager
 
 Documenti di policy usati dal bot Telegram e dalla UI `/admin`.
 
 | File | Area |
 |------|------|
-| [super-manager.md](super-manager.md) | Ruolo, tool MCP, comportamento generale |
+| [imanager.md](imanager.md) | Ruolo, tool MCP, comportamento generale |
 | [manutenzioni.md](manutenzioni.md) | Board Manutenzioni, moduli, schedulazione |
 | [customer-care.md](customer-care.md) | Gestione & Amministrazione, supporto operativo |
 | [pulizie.md](pulizie.md) | Leggenda pulizie e turni cameriere |

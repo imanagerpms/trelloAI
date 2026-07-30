@@ -1,5 +1,5 @@
 /**
- * Super Manager — Telegram + MCP (Trello locale + Octorate remoto) + LLM.
+ * iManager — Telegram + MCP (Trello locale + Octorate remoto) + LLM.
  *
  * Requisiti .env:
  *   TELEGRAM_BOT_TOKEN, TRELLO_*, ANTHROPIC_API_KEY|OPENAI_API_KEY
@@ -12,11 +12,12 @@ import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import {
   hasLlmConfigured,
-  runSuperManager,
+  runIManager,
   shouldIntervene,
 } from "./telegram-agent.js";
 import { McpHub } from "./mcp-hub.js";
 import { startPublicHttpServer } from "./public-http.js";
+import { humanizeError } from "./user-errors.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: join(__dirname, "..", ".env") });
@@ -29,7 +30,7 @@ if (!token) {
 if (!hasLlmConfigured()) {
   console.error(
     "Manca OPENAI_API_KEY o ANTHROPIC_API_KEY nel .env\n" +
-      "Serve un LLM affinché Super Manager capisca richieste in linguaggio naturale."
+      "Serve un LLM affinché iManager capisca richieste in linguaggio naturale."
   );
   process.exit(1);
 }
@@ -115,7 +116,7 @@ function isReplyToBot(msg) {
   return Boolean(r?.from?.is_bot && r.from.username === botUsername);
 }
 
-console.log("Avvio Super Manager…");
+console.log("Avvio iManager…");
 console.log("Connessione MCP (Trello + Octorate)…");
 const hub = new McpHub();
 await hub.connectAll();
@@ -218,7 +219,7 @@ while (true) {
 
       const clean = text
         .replace(new RegExp(`@${botUsername}`, "ig"), "")
-        .replace(/^(super\s*manager|manager|sm)[:\s]+/i, "")
+        .replace(/^(imanager|i\s*manager|super\s*manager|manager|sm)[:\s]+/i, "")
         .trim();
 
       const userPayload = isPrivate
@@ -229,7 +230,7 @@ while (true) {
         console.log("  → elaboro…");
         await api("sendChatAction", { chat_id: chatId, action: "typing" });
         const history = chatHistory.get(chatId) || [];
-        const { reply: answer, history: next, actions } = await runSuperManager(
+        const { reply: answer, history: next, actions } = await runIManager(
           hub,
           history,
           userPayload
@@ -243,8 +244,8 @@ while (true) {
         console.log(`  → risposta (${(answer || "").length} char)`);
         await reply(chatId, answer, msg.message_id);
       } catch (err) {
-        console.error("  → errore:", err.message);
-        await reply(chatId, `Errore: ${err.message}`, msg.message_id);
+        console.error("  → errore:", err.message, err.technical || "");
+        await reply(chatId, humanizeError(err), msg.message_id);
       }
     }
   } catch (err) {

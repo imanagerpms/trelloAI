@@ -1,6 +1,6 @@
 # TrelloAI
 
-Integrazione Trello + Cursor AI tramite **Model Context Protocol (MCP)**, più bot Telegram **Super Manager** (Octorate, pulizie, turni). Le regole operative vivono in `rules/` e si editano anche dalla UI Admin.
+Integrazione Trello + Cursor AI tramite **Model Context Protocol (MCP)**, più bot Telegram **iManager** (Octorate, pulizie, turni). Le regole operative vivono in `rules/` e si editano anche dalla UI Admin.
 
 ## Setup rapido
 
@@ -98,7 +98,7 @@ trelloAI/
 ├── .cursor/
 │   ├── mcp.json              # Config MCP per Cursor
 │   └── skills/trello/        # Skill agente
-├── rules/                    # Policy Super Manager per area
+├── rules/                    # Policy iManager per area
 ├── config/                   # Strutture, pesi turni, board
 ├── src/
 │   ├── server.js             # Server MCP
@@ -110,7 +110,7 @@ trelloAI/
 
 ## Uso da cellulare (Telegram su Scaleway)
 
-Il bot `@manager_888_bot` (Super Manager) gira su Scaleway. In **gruppo** rispondi solo se taggato `@manager_888_bot` (il nome visualizzato non basta) oppure in reply a un suo messaggio. In privato risponde sempre.
+Il bot `@manager_888_bot` (iManager) gira su Scaleway. In **gruppo** rispondi solo se taggato `@manager_888_bot` (il nome visualizzato non basta) oppure in reply a un suo messaggio. In privato risponde sempre.
 
 Programmi in locale; sync immediato senza GitHub.
 
@@ -123,7 +123,7 @@ Poi testi su Telegram. Commit/push su GitHub solo quando la versione è ok.
 **Server attuale:** `151.115.166.171` (Milano) → https://151-115-166-171.sslip.io  
 Dettagli: [deploy/README.md](deploy/README.md)
 
-### UI Admin (config Super Manager)
+### UI Admin (config iManager)
 
 1. Imposta `ADMIN_TOKEN=...` nel `.env` del server (`npm run ship:env`)
 2. Apri https://151-115-166-171.sslip.io/admin/

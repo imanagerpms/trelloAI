@@ -1,3 +1,5 @@
+import { toUserFacingError } from "./user-errors.js";
+
 const TRELLO_API = "https://api.trello.com/1";
 
 export class TrelloClient {
@@ -35,7 +37,12 @@ export class TrelloClient {
       options.body = typeof body === "string" ? body : JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (err) {
+      throw toUserFacingError(err, { service: "trello" });
+    }
     const text = await response.text();
 
     let data;
@@ -50,7 +57,10 @@ export class TrelloClient {
         typeof data === "object" && data?.message
           ? data.message
           : `Trello API error ${response.status}`;
-      throw new Error(message);
+      throw toUserFacingError(new Error(message), {
+        service: "trello",
+        status: response.status,
+      });
     }
 
     return data;

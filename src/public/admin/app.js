@@ -122,7 +122,7 @@ async function renderOverview(el) {
   state.rules = status.rules || [];
   el.innerHTML = `
     <div class="card">
-      <h2>Aree Super Manager</h2>
+      <h2>Aree iManager</h2>
       <ul class="status-list">
         ${state.rules
           .map(

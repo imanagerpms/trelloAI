@@ -82,20 +82,20 @@ export async function exchangeToken(body) {
     data = JSON.parse(text);
   } catch {
     throw new Error(
-      `Token endpoint non-JSON (${res.status}): ${text.slice(0, 200)}`
+      "Autenticazione Octorate fallita: risposta token non valida. Rifai /oauth/login sul server."
     );
   }
   if (!res.ok) {
     throw new Error(
-      `Token exchange failed (${res.status}): ${
-        data.message || data.error || text
-      }`
+      `Autenticazione Octorate fallita (HTTP ${res.status}). Rifai /oauth/login; se persiste verifica PUBLIC/SECRET e redirect URI.`
     );
   }
   const access = data.access_token || data.accessToken;
   const refresh = data.refresh_token || data.refreshToken;
   if (!access) {
-    throw new Error(`Risposta token senza access_token: ${text.slice(0, 200)}`);
+    throw new Error(
+      "Autenticazione Octorate fallita: manca access_token. Rifai /oauth/login sul server."
+    );
   }
   const expiresIn = Number(data.expires_in || 3600);
   const saved = {
