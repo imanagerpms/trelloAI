@@ -1207,10 +1207,14 @@ async function computePulizie(hub, args = {}) {
     const fermateConCambio = [];
     const aprireEControllare = []; // fermate semplici + camere vuote
     const spostate = []; // moved-in: camera fisica ignota
+    const matchedReservations = new Set();
 
-    // Camere fisiche note (non spostate)
+    // Camere fisiche note (include moved con pmsProduct assegnato sulla struttura destinazione)
     for (const room of rooms) {
-      const resHere = here.filter((a) => !a.moved && a.pmsProduct === room.id);
+      const resHere = here.filter(
+        (a) => a.pmsProduct === room.id && (!a.moved || a.physicalAcc === accId)
+      );
+      for (const r of resHere) matchedReservations.add(String(r.reservationId));
       const checkoutRes = resHere.find((a) => a.isCheckout);
       const checkinRes = resHere.find((a) => a.isCheckin);
       const stayRes = resHere.find((a) => a.isStayOver);
@@ -1268,8 +1272,8 @@ async function computePulizie(hub, args = {}) {
       }
     }
 
-    // Prenotazioni spostate fisicamente qui: camera di destinazione ignota sul tableau
-    for (const a of here.filter((x) => x.moved)) {
+    // Prenotazioni spostate fisicamente qui senza camera assegnata sulla destinazione
+    for (const a of here.filter((x) => x.moved && !matchedReservations.has(String(x.reservationId)))) {
       const origRoom =
         (a.pmsProduct && roomNameByAcc.get(a.bookingAcc)?.get(a.pmsProduct)) ||
         a.roomName ||
@@ -1303,13 +1307,17 @@ async function computePulizie(hub, args = {}) {
       totali.spostate += 1;
     }
 
+    const numericCmp = (a, b) =>
+      String(a).localeCompare(String(b), undefined, { numeric: true });
     const byTime = (x, y) =>
       String(x.arrivalTime || "99").localeCompare(String(y.arrivalTime || "99")) ||
-      String(x.codifica).localeCompare(String(y.codifica));
+      numericCmp(x.codifica, y.codifica);
     partenzeConEntrata.sort(byTime);
     entrate.sort(byTime);
-    partenzeSenzaEntrata.sort((x, y) => String(x.codifica).localeCompare(String(y.codifica)));
-    fermateConCambio.sort((x, y) => String(x.codifica).localeCompare(String(y.codifica)));
+    partenzeSenzaEntrata.sort((x, y) => numericCmp(x.codifica, y.codifica));
+    fermateConCambio.sort((x, y) => numericCmp(x.codifica, y.codifica));
+    aprireEControllare.sort((x, y) => numericCmp(x.codifica, y.codifica));
+    spostate.sort((x, y) => numericCmp(x.codifica, y.codifica));
 
     byStruttura[sName] = {
       id: accId,
