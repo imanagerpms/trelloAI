@@ -574,7 +574,7 @@ async function octorateArrivi(hub, args = {}) {
             size: limitPerProperty,
           });
           const rows = Array.isArray(raw) ? raw : raw?.data || raw?.content || [];
-          return { ok: true, rows };
+          return { ok: true, queryAcc: id, rows };
         } catch (e) {
           return {
             ok: false,
@@ -1034,6 +1034,7 @@ async function computePulizie(hub, args = {}) {
   const errors = [];
   const resById = new Map(); // reservation id -> dati prenotazione
   const appearsIn = new Map(); // reservation id -> Set(accId che l'hanno restituita)
+  const pmsProductByQueryAcc = new Map(); // reservation id -> Map(queryAccId -> pmsProduct)
 
   // Interroga SEMPRE tutta la rete su 3 tipi: serve sia per lo stato camera sia per
   // rilevare gli spostamenti sul tableau.
@@ -1084,7 +1085,6 @@ async function computePulizie(hub, args = {}) {
         if (isMasterAccommodation(accId)) continue;
         const ci = dateOnly(row.checkin);
         const co = dateOnly(row.checkout);
-        // La prenotazione deve toccare il giorno: checkout oggi, checkin oggi o in-house stanotte
         const touchesDay =
           co === date || ci === date || (ci && co && ci < date && date < co);
         if (!touchesDay) continue;
@@ -1107,19 +1107,30 @@ async function computePulizie(hub, args = {}) {
         }
         if (!appearsIn.has(rid)) appearsIn.set(rid, new Set());
         appearsIn.get(rid).add(r.queryAcc);
+        // Track pmsProduct per struttura che restituisce la riga
+        if (row.pmsProduct != null) {
+          if (!pmsProductByQueryAcc.has(rid)) pmsProductByQueryAcc.set(rid, new Map());
+          pmsProductByQueryAcc.get(rid).set(r.queryAcc, String(row.pmsProduct));
+        }
       }
     }
   }
 
   // Attribuzione fisica (tableau) + ruoli rispetto alla data
   const enriched = [...resById.values()].map((a) => {
-    const seenAt = [...(appearsIn.get(String(a.reservationId)) || [])];
+    const rid = String(a.reservationId);
+    const seenAt = [...(appearsIn.get(rid) || [])];
     const moved = seenAt.filter((x) => x !== a.bookingAcc);
     const physicalAcc = moved.length ? moved[0] : a.bookingAcc;
+    // Per le spostate, usa il pmsProduct restituito dalla struttura destinazione
+    const destPmsProduct = moved.length
+      ? pmsProductByQueryAcc.get(rid)?.get(physicalAcc) || a.pmsProduct
+      : a.pmsProduct;
     const ciDate = dateOnly(a.checkin);
     const coDate = dateOnly(a.checkout);
     return {
       ...a,
+      pmsProduct: destPmsProduct,
       physicalAcc,
       moved: moved.length > 0,
       ciDate,
@@ -1171,18 +1182,29 @@ async function computePulizie(hub, args = {}) {
     })
   );
 
-  const entryFrom = (tipo, code, camera, res, extra = {}) => ({
-    tipo,
-    codifica: code,
-    camera,
-    guest: res?.guest,
-    pax: res?.pax ?? null,
-    checkin: res?.checkin,
-    checkout: res?.checkout,
-    arrivalTime: res?.arrivalTime || undefined,
-    note: res?.note && res.note.length ? res.note : undefined,
-    ...extra,
-  });
+  const entryFrom = (tipo, code, camera, res, extra = {}) => {
+    // arrivalTime solo quando c'è un check-in da preparare
+    const showArrival =
+      tipo === "ENTRATA" || tipo === "PARTENZA_CON_ENTRATA";
+    return {
+      tipo,
+      codifica: code,
+      camera,
+      guest: res?.guest,
+      pax: res?.pax ?? null,
+      checkin: res?.checkin,
+      checkout: res?.checkout,
+      arrivalTime: showArrival ? res?.arrivalTime || undefined : undefined,
+      note: (() => {
+        if (!res?.note || !res.note.length) return undefined;
+        const filtered = showArrival
+          ? res.note
+          : res.note.filter((n) => !/^arrivo previsto/i.test(n));
+        return filtered.length ? filtered : undefined;
+      })(),
+      ...extra,
+    };
+  };
 
   const byStruttura = {};
   const totali = {
@@ -1297,9 +1319,11 @@ async function computePulizie(hub, args = {}) {
       if (a.isCheckout && a.isCheckin) code = `(da assegnare) ${a.pax}p`;
       else if (a.isCheckin) code = `(da assegnare) ${a.pax}p`;
       else if (ruolo === "PARTENZA_SENZA_ENTRATA") code = "(da assegnare)";
+      const isEntryRole = ruolo === "ENTRATA" || ruolo === "PARTENZA_CON_ENTRATA";
       spostate.push(
         entryFrom(tipo, code, "(camera da assegnare)", a, {
           pax: ruolo === "PARTENZA_SENZA_ENTRATA" ? null : a.pax,
+          arrivalTime: isEntryRole ? a.arrivalTime || undefined : undefined,
           origine: { struttura: nameById.get(a.bookingAcc) || a.bookingAcc, camera: origRoom },
           ruolo,
         })
