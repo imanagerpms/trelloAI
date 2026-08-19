@@ -1289,6 +1289,7 @@ async function computePulizie(hub, args = {}) {
           tipo: "VUOTA",
           codifica: code,
           camera: room.name,
+          note: ["vuota dalla sera precedente: solo aprire e controllare la camera"],
         });
         totali.vuote += 1;
       }
@@ -1461,8 +1462,7 @@ function buildTurniModuli(pulizie) {
     const cfg = getAccConfig(sData.id);
     const rooms = [];
     const pushRoom = (entry) => {
-      // Vuote: peso 0, non le elenchiamo nei turni (non contano)
-      if (entry.tipo === "VUOTA") return;
+      // Vuote: peso 0, ma le elenchiamo comunque per visibilita' (solo controllo)
       const tipo = entry.tipo === "SPOSTATA" ? entry.ruolo || "FERMATA" : entry.tipo;
       // Appartamenti: niente fermate nei turni
       if (
