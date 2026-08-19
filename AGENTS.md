@@ -1,6 +1,6 @@
 # TrelloAI — istruzioni per gli agenti
 
-Progetto MCP + bot Telegram **Super Manager** per Manutenzioni, Customer care, Pulizie e Interazione clienti.
+Progetto MCP + bot Telegram **iManager** per Manutenzioni, Customer care, Pulizie e Interazione clienti.
 
 ## Regole operative
 
@@ -8,7 +8,7 @@ Fonte di verità: cartella [`rules/`](rules/README.md) (editabili anche dalla UI
 
 | Area | File |
 |------|------|
-| Core | `rules/super-manager.md` |
+| Core | `rules/imanager.md` |
 | Manutenzioni | `rules/manutenzioni.md` |
 | Customer care | `rules/customer-care.md` |
 | Pulizie / turni | `rules/pulizie.md` |

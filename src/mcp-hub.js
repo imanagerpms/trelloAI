@@ -10,6 +10,7 @@ import {
   forceRefreshOctorateToken,
   getOctorateAccessToken,
 } from "./octorate-auth.js";
+import { toUserFacingError } from "./user-errors.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
@@ -65,7 +66,7 @@ export class McpHub {
       if (line) console.error("[mcp:trello]", line);
     });
 
-    const client = new Client({ name: "super-manager-trello", version: "1.0.0" });
+    const client = new Client({ name: "imanager-trello", version: "1.0.0" });
     await client.connect(transport);
     const listed = await client.listTools();
     this.servers.set("trello", { client, tools: listed.tools || [] });
@@ -113,7 +114,7 @@ export class McpHub {
     });
 
     const client = new Client({
-      name: "super-manager-octorate",
+      name: "imanager-octorate",
       version: "1.0.0",
     });
     await client.connect(transport);
@@ -129,8 +130,9 @@ export class McpHub {
   searchTools(server, query = "", limit = 30) {
     const entry = this.servers.get(server);
     if (!entry) {
-      throw new Error(
-        `Server MCP sconosciuto: ${server}. Disponibili: ${[...this.servers.keys()].join(", ")}`
+      throw toUserFacingError(
+        new Error(`Server MCP sconosciuto: ${server}`),
+        { service: server === "octorate" || server === "trello" ? server : null }
       );
     }
     const q = String(query || "").trim().toLowerCase();
@@ -151,7 +153,11 @@ export class McpHub {
 
   getToolSchema(server, toolName) {
     const entry = this.servers.get(server);
-    if (!entry) throw new Error(`Server MCP sconosciuto: ${server}`);
+    if (!entry) {
+      throw toUserFacingError(new Error(`Server MCP sconosciuto: ${server}`), {
+        service: server === "octorate" || server === "trello" ? server : null,
+      });
+    }
     const tool = entry.tools.find((t) => t.name === toolName);
     if (!tool) {
       throw new Error(
@@ -167,7 +173,13 @@ export class McpHub {
 
   async callTool(server, toolName, args = {}, { _retried } = {}) {
     const entry = this.servers.get(server);
-    if (!entry) throw new Error(`Server MCP sconosciuto: ${server}`);
+    if (!entry) {
+      throw toUserFacingError(new Error(`Server MCP sconosciuto: ${server}`), {
+        service: server === "octorate" || server === "trello" ? server : null,
+      });
+    }
+    const service =
+      server === "octorate" || server === "trello" ? server : null;
     try {
       const result = await entry.client.callTool({
         name: toolName,
@@ -175,7 +187,10 @@ export class McpHub {
       });
       const text = textFromToolResult(result);
       if (result?.isError) {
-        throw new Error(text || `Errore tool ${server}/${toolName}`);
+        throw toUserFacingError(
+          new Error(text || `Errore tool ${server}/${toolName}`),
+          { service }
+        );
       }
       try {
         return text ? JSON.parse(text) : result;
@@ -187,7 +202,7 @@ export class McpHub {
       const authFail =
         server === "octorate" &&
         !_retried &&
-        /unauthoriz|401|token|expired|forbidden|403/i.test(msg);
+        /unauthoriz|401|token|expired|forbidden|403|oauth|login/i.test(msg);
       if (authFail) {
         console.warn(
           `[mcp:octorate] auth error su ${toolName}, forzo refresh token e riconnetto… (${msg})`
@@ -202,7 +217,7 @@ export class McpHub {
         await this.connectOctorate();
         return this.callTool(server, toolName, args, { _retried: true });
       }
-      throw err;
+      throw toUserFacingError(err, { service });
     }
   }
 

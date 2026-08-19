@@ -416,10 +416,15 @@ export const TOOL_DEFINITIONS = [
   ),
   tool(
     "schedula_moduli",
-    "Schedula moduli liberi sulla board Manutenzioni",
+    "Schedula moduli liberi/finestra sulla board Manutenzioni. moduleDues: scadenze per-modulo (HH:MM) per finestre turnover.",
     {
       modules: { type: "array", items: { type: "string" } },
       due: { type: "string" },
+      moduleDues: {
+        type: "object",
+        additionalProperties: { type: "string" },
+        description: 'Es. {"NR3":"15:00","ITC301":"14:30"}',
+      },
       dryRun: { type: "boolean" },
     },
     ["modules", "due"]
@@ -781,6 +786,7 @@ export async function executeTool(name, args = {}) {
     case "schedula_moduli":
       return schedulaModuli(args.modules, {
         dueDate: args.due,
+        moduleDues: args.moduleDues || undefined,
         dryRun: Boolean(args.dryRun),
       });
     case "trello_api": {

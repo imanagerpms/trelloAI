@@ -1,9 +1,9 @@
 {
   "rules": [
     {
-      "id": "super-manager",
-      "file": "super-manager.md",
-      "title": "Super Manager",
+      "id": "imanager",
+      "file": "imanager.md",
+      "title": "iManager",
       "area": "core",
       "includeInSystemPrompt": true
     },

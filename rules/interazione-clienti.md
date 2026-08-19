@@ -14,7 +14,7 @@ Tono: italiano, concreto, breve. Non esporre ID interni inutili.
 
 **AIBridge** è il software interno che aggrega le conversazioni in essere con i clienti (canali OTA / messaging).
 
-Quando sarà collegato, Super Manager dovrà:
+Quando sarà collegato, iManager dovrà:
 
 1. Leggere il contesto conversazione (thread, ospite, struttura, prenotazione)
 2. Rispondere secondo policy customer-facing (cortesia, accuratezza date/prezzi, escalation umana)

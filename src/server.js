@@ -27,9 +27,9 @@ function readRules() {
     return buildSystemPrompt();
   } catch {
     try {
-      return readRule("super-manager");
+      return readRule("imanager");
     } catch {
-      return "Nessun file regole trovato. Crea rules/super-manager.md.";
+      return "Nessun file regole trovato. Crea rules/imanager.md.";
     }
   }
 }
@@ -135,21 +135,27 @@ server.registerPrompt(
   "schedula-moduli",
   {
     description:
-      "Schedula i compiti manutenzione spostando task per moduli liberi (camere, corridoi, cucine)",
+      "Schedula i compiti manutenzione spostando task per moduli liberi/finestra (camere, corridoi, cucine)",
     argsSchema: {
       moduliLiberi: z
         .string()
         .describe(
-          "Sigle moduli liberi, separate da virgola. Es: NR1, NR2, NR3, NR CORRIDOIO, NR CUCINA"
+          "Sigle moduli accessibili (LIBERA + FINESTRA), separate da virgola. Es: NR1, NR2, NR3, NR CORRIDOIO, NR CUCINA"
         ),
       dataScadenza: z
         .string()
         .describe(
           "Data di scadenza per i task in IN ESECUZIONE. Es: 16/07/2026, 2026-07-16, domani"
         ),
+      moduliFinestra: z
+        .string()
+        .optional()
+        .describe(
+          "Opzionale: scadenze strette per finestre turnover. Formato SIGLA=HH:MM separati da virgola. Es: NR3=15:00,ITC301=14:30"
+        ),
     },
   },
-  async ({ moduliLiberi, dataScadenza }) => {
+  async ({ moduliLiberi, dataScadenza, moduliFinestra }) => {
     let schedulaRules = "";
     try {
       schedulaRules = readRule("manutenzioni");
@@ -157,30 +163,40 @@ server.registerPrompt(
       /* empty */
     }
 
+    const moduliArgs = moduliLiberi
+      .split(/[,;\n]+/)
+      .map((m) => m.trim())
+      .filter(Boolean)
+      .map((m) => (m.includes(" ") ? `"${m}"` : m))
+      .join(" ");
+    const finestraFlag = moduliFinestra?.trim()
+      ? ` --finestra ${moduliFinestra.trim()}`
+      : "";
+
     return {
       messages: [
         {
           role: "user",
           content: {
             type: "text",
-            text: `Schedula i compiti per i moduli liberi sulla board Manutenzioni.
+            text: `Schedula i compiti per i moduli accessibili sulla board Manutenzioni.
 
-## Moduli liberi (da schedulare)
+## Moduli accessibili (LIBERA + FINESTRA)
 ${moduliLiberi}
 
-## Scadenza
+## Scadenza default (moduli LIBERA)
 ${dataScadenza}
-
+${moduliFinestra?.trim() ? `\n## Finestre (scadenza orario arrivo)\n${moduliFinestra.trim()}\n` : ""}
 ## Regole
 ${schedulaRules}
 
 ## Istruzioni
-1. Esegui: \`npm run schedula -- ${moduliLiberi.split(/[,;\n]+/).map((m) => m.trim()).filter(Boolean).join(" ")} --scadenza ${dataScadenza}\`
+1. Esegui: \`npm run schedula -- ${moduliArgs} --scadenza ${dataScadenza}${finestraFlag}\`
    Oppure applica manualmente la regola unica con i tool trello_*.
 2. Non toccare liste Template e Terminati.
-3. Task in IN ESECUZIONE: assegna Costache Ciurar e scadenza ${dataScadenza}.
+3. Task in IN ESECUZIONE: assegna Costache Ciurar; scadenza = data default oppure orario --finestra.
    Task che escono da IN ESECUZIONE: rimuovi la scadenza.
-4. Riporta in italiano: task spostati (da→a), moduli liberi, task saltati.
+4. Riporta in italiano: task spostati (da→a), moduli, finestre, task saltati.
 
 Procedi.`,
           },
