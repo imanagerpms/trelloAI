@@ -1230,6 +1230,15 @@ async function computePulizie(hub, args = {}) {
     const aprireEControllare = []; // fermate semplici + camere vuote
     const spostate = []; // moved-in: camera fisica ignota
     const matchedReservations = new Set();
+    const removeVuotaByCode = (code) => {
+      const idx = aprireEControllare.findIndex(
+        (e) => e.tipo === "VUOTA" && e.codifica === code
+      );
+      if (idx >= 0) {
+        aprireEControllare.splice(idx, 1);
+        totali.vuote = Math.max(0, totali.vuote - 1);
+      }
+    };
 
     // Camere fisiche note (include moved con pmsProduct assegnato sulla struttura destinazione)
     for (const room of rooms) {
@@ -1295,13 +1304,85 @@ async function computePulizie(hub, args = {}) {
       }
     }
 
-    // Prenotazioni spostate fisicamente qui senza camera assegnata sulla destinazione.
-    // Prova a dedurre la camera di destinazione dal numero nel roomName di origine.
-    for (const a of here.filter((x) => x.moved && !matchedReservations.has(String(x.reservationId)))) {
+    const resolveMovedTarget = (entry) => {
       const origRoom =
-        (a.pmsProduct && roomNameByAcc.get(a.bookingAcc)?.get(a.pmsProduct)) ||
-        a.roomName ||
+        entry.roomName ||
+        (entry.pmsProduct &&
+          roomNameByAcc.get(entry.bookingAcc)?.get(entry.pmsProduct)) ||
         null;
+      const origRoomName = String(origRoom || "");
+      const origCap = /Tripla|Triple/i.test(origRoomName)
+        ? "Tripla"
+        : /Quad/i.test(origRoomName)
+          ? "Quad"
+          : /Doppia|Double/i.test(origRoomName)
+            ? "Doppia"
+            : null;
+      const origNum = (() => {
+        const m = origRoomName.match(/#(\d+)/);
+        return m ? Number(m[1]) : null;
+      })();
+
+      const candidates = rooms.filter((rm) => {
+        if (!origCap) return false;
+        if (origCap === "Tripla") return /Tripla/i.test(rm.name);
+        if (origCap === "Quad") return /Quad/i.test(rm.name);
+        if (origCap === "Doppia") return /Doppia/i.test(rm.name);
+        return false;
+      });
+
+      const destNumTarget = (() => {
+        if (origCap === "Tripla" && origNum != null) {
+          if (origNum === 1) return 1;
+          if (origNum === 5) return 5;
+        }
+        if (origCap === "Doppia" && origNum != null) {
+          if (origNum === 3) return 2;
+          if (origNum === 4) return 4;
+        }
+        if (origCap === "Quad" && origNum != null) return 3;
+        return null;
+      })();
+
+      const destRoom = (() => {
+        if (!candidates.length) return null;
+        if (destNumTarget == null) return candidates[0];
+        const findByCodeNum = (rm) => {
+          const code = shortRoomCode(rm.name);
+          const m = String(code).match(/#(\d+)/);
+          return m ? Number(m[1]) : null;
+        };
+        return (
+          candidates.find((rm) => findByCodeNum(rm) === destNumTarget) ||
+          candidates[0]
+        );
+      })();
+
+      const origLabel = nameById.get(entry.bookingAcc) || entry.bookingAcc;
+      const shortOrig = String(origLabel).replace(/^(Domus\s*)/i, "").slice(0, 12);
+      const destCode = destRoom ? shortRoomCode(destRoom.name) : null;
+      return {
+        origRoom,
+        shortOrig,
+        movedTag: `da ${shortOrig}`,
+        destRoom,
+        destCode,
+      };
+    };
+
+    // Prenotazioni spostate fisicamente qui senza camera assegnata sulla destinazione.
+    // Processa prima i checkout, cosi' PARTENZA+ENTRATA sulla stessa camera si accorpano.
+    const movedEntries = here
+      .filter((x) => x.moved && !matchedReservations.has(String(x.reservationId)))
+      .sort((a, b) => {
+        const aRank = a.isCheckout ? 0 : a.isCheckin ? 1 : 2;
+        const bRank = b.isCheckout ? 0 : b.isCheckin ? 1 : 2;
+        return aRank - bRank;
+      });
+    for (const a of movedEntries) {
+      if (matchedReservations.has(String(a.reservationId))) continue;
+      const { origRoom, shortOrig, movedTag, destRoom, destCode } =
+        resolveMovedTarget(a);
 
       const ruolo = a.isCheckout
         ? a.isCheckin
@@ -1321,62 +1402,6 @@ async function computePulizie(hub, args = {}) {
       // Per le spostate l'API non espone la camera fisica di destinazione.
       // Tratta come prenotazione della struttura con ruolo appropriato,
       // indicando la struttura d'origine — lo staff verifica la camera sul tableau.
-      const origLabel = nameById.get(a.bookingAcc) || a.bookingAcc;
-      const shortOrig = String(origLabel).replace(/^(Domus\s*)/i, "").slice(0, 12);
-      // Euristica per includere anche il nome della camera di destinazione
-      // (es. NR#1) quando `roomName` dell'origine contiene tipo + numero.
-      // Nota: Octorate spesso mantiene `pmsProduct` della struttura di origine anche
-      // dopo lo spostamento sul tableau, quindi questa e' una deduzione per tipo.
-      const origRoomName = String(a.roomName || "");
-      const origCap = /Tripla/i.test(origRoomName)
-        ? "Tripla"
-        : /Quad/i.test(origRoomName)
-          ? "Quad"
-          : /Doppia/i.test(origRoomName)
-            ? "Doppia"
-            : null;
-      const origNum = (() => {
-        const m = origRoomName.match(/#(\d+)/);
-        return m ? Number(m[1]) : null;
-      })();
-
-      const candidates = rooms.filter((rm) => {
-        if (!origCap) return false;
-        if (origCap === "Tripla") return /Tripla/i.test(rm.name);
-        if (origCap === "Quad") return /Quad/i.test(rm.name);
-        if (origCap === "Doppia") return /Doppia/i.test(rm.name);
-        return false;
-      });
-
-      const destNumTarget = (() => {
-        // Heuristics per NR: Tripla -> {1,5} ; Doppia -> {2,4} ; Quad -> {3}
-        if (origCap === "Tripla" && origNum != null) {
-          if (origNum === 1) return 1;
-          if (origNum === 5) return 5;
-        }
-        if (origCap === "Doppia" && origNum != null) {
-          if (origNum === 3) return 2;
-          if (origNum === 4) return 4;
-        }
-        if (origCap === "Quad" && origNum != null) {
-          return 3;
-        }
-        return null;
-      })();
-
-      const destRoom = (() => {
-        if (!candidates.length) return null;
-        if (destNumTarget == null) return candidates[0];
-        const findByCodeNum = (rm) => {
-          const code = shortRoomCode(rm.name);
-          const m = String(code).match(/#(\d+)/);
-          return m ? Number(m[1]) : null;
-        };
-        return candidates.find((rm) => findByCodeNum(rm) === destNumTarget) || candidates[0];
-      })();
-
-      const destCode = destRoom ? shortRoomCode(destRoom.name) : null;
-      const movedTag = `da ${shortOrig}`;
       let code;
       if (a.isCheckin) {
         code = destCode
@@ -1388,8 +1413,35 @@ async function computePulizie(hub, args = {}) {
       }
       const destCamera = destRoom ? destRoom.name : `da ${shortOrig}`;
 
+      if (a.isCheckout) {
+        const pairedCheckin = here.find((x) => {
+          if (x === a || !x.moved || matchedReservations.has(String(x.reservationId))) {
+            return false;
+          }
+          if (!x.isCheckin) return false;
+          const target = resolveMovedTarget(x);
+          return target.destCode && destCode && target.destCode === destCode;
+        });
+        if (pairedCheckin) {
+          const pairedTarget = resolveMovedTarget(pairedCheckin);
+          removeVuotaByCode(destCode);
+          const pairedCode = `${destCode} (${movedTag}) ${pairedCheckin.pax || ""}p`.replace(
+            /\s+p$/,
+            "p"
+          );
+          partenzeConEntrata.push(
+            entryFrom("PARTENZA_CON_ENTRATA", pairedCode, destCamera, pairedCheckin, {
+              ospiteInUscita: a.guest,
+            })
+          );
+          matchedReservations.add(String(a.reservationId));
+          matchedReservations.add(String(pairedCheckin.reservationId));
+          totali.partenzeConEntrata += 1;
+          continue;
+        }
+      }
+
       if (a.isCheckout && a.isCheckin) {
-        // Cerca un altro moved-checkin dalla stessa struttura che potrebbe entrare qui
         partenzeConEntrata.push(
           entryFrom("PARTENZA_CON_ENTRATA", code, destCamera, a, {
             ospiteInUscita: a.guest,
@@ -1397,6 +1449,7 @@ async function computePulizie(hub, args = {}) {
         );
         totali.partenzeConEntrata += 1;
       } else if (a.isCheckout) {
+        if (destCode) removeVuotaByCode(destCode);
         partenzeSenzaEntrata.push(
           entryFrom(
             "PARTENZA_SENZA_ENTRATA",
@@ -1408,11 +1461,13 @@ async function computePulizie(hub, args = {}) {
         );
         totali.partenzeSenzaEntrata += 1;
       } else if (a.isCheckin) {
+        if (destCode) removeVuotaByCode(destCode);
         entrate.push(
           entryFrom("ENTRATA", code, destCamera, a)
         );
         totali.entrate += 1;
       } else if (a.isStayOver) {
+        if (destCode) removeVuotaByCode(destCode);
         const cuts = linenChangeCutDays(a.nights);
         const dayOffset = daysBetweenISO(a.checkin, date);
         if (cuts.has(dayOffset)) {
