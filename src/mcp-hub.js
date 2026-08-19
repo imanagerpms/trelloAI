@@ -202,7 +202,9 @@ export class McpHub {
       const authFail =
         server === "octorate" &&
         !_retried &&
-        /unauthoriz|401|token|expired|forbidden|403|oauth|login/i.test(msg);
+        /unauthoriz|401|token|expired|forbidden|403|oauth|login|non valido|scaduto|Accesso Octorate|non autenticato|invalid/i.test(
+          msg
+        );
       if (authFail) {
         console.warn(
           `[mcp:octorate] auth error su ${toolName}, forzo refresh token e riconnetto… (${msg})`
