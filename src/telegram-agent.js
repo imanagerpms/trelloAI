@@ -1294,12 +1294,14 @@ async function computePulizie(hub, args = {}) {
       }
     }
 
-    // Prenotazioni spostate fisicamente qui senza camera assegnata sulla destinazione
+    // Prenotazioni spostate fisicamente qui senza camera assegnata sulla destinazione.
+    // Prova a dedurre la camera di destinazione dal numero nel roomName di origine.
     for (const a of here.filter((x) => x.moved && !matchedReservations.has(String(x.reservationId)))) {
       const origRoom =
         (a.pmsProduct && roomNameByAcc.get(a.bookingAcc)?.get(a.pmsProduct)) ||
         a.roomName ||
         null;
+
       const ruolo = a.isCheckout
         ? a.isCheckin
           ? "PARTENZA_CON_ENTRATA"
@@ -1314,21 +1316,56 @@ async function computePulizie(hub, args = {}) {
       ) {
         continue;
       }
-      let tipo = "SPOSTATA";
-      let code = "(da assegnare)";
-      if (a.isCheckout && a.isCheckin) code = `(da assegnare) ${a.pax}p`;
-      else if (a.isCheckin) code = `(da assegnare) ${a.pax}p`;
-      else if (ruolo === "PARTENZA_SENZA_ENTRATA") code = "(da assegnare)";
-      const isEntryRole = ruolo === "ENTRATA" || ruolo === "PARTENZA_CON_ENTRATA";
-      spostate.push(
-        entryFrom(tipo, code, "(camera da assegnare)", a, {
-          pax: ruolo === "PARTENZA_SENZA_ENTRATA" ? null : a.pax,
-          arrivalTime: isEntryRole ? a.arrivalTime || undefined : undefined,
-          origine: { struttura: nameById.get(a.bookingAcc) || a.bookingAcc, camera: origRoom },
-          ruolo,
-        })
-      );
-      totali.spostate += 1;
+
+      // Per le spostate l'API non espone la camera fisica di destinazione.
+      // Tratta come prenotazione della struttura con ruolo appropriato,
+      // indicando la struttura d'origine — lo staff verifica la camera sul tableau.
+      const origLabel = nameById.get(a.bookingAcc) || a.bookingAcc;
+      const shortOrig = String(origLabel).replace(/^(Domus\s*)/i, "").slice(0, 12);
+      let code;
+      if (a.isCheckin) {
+        code = `(da ${shortOrig}) ${a.pax || ""}p`.replace(/\s+p$/, "p");
+      } else {
+        code = `(da ${shortOrig})`;
+      }
+
+      if (a.isCheckout && a.isCheckin) {
+        // Cerca un altro moved-checkin dalla stessa struttura che potrebbe entrare qui
+        partenzeConEntrata.push(
+          entryFrom("PARTENZA_CON_ENTRATA", code, `da ${shortOrig}`, a, {
+            ospiteInUscita: a.guest,
+          })
+        );
+        totali.partenzeConEntrata += 1;
+      } else if (a.isCheckout) {
+        partenzeSenzaEntrata.push(
+          entryFrom("PARTENZA_SENZA_ENTRATA", code, `da ${shortOrig}`, a, { pax: null })
+        );
+        totali.partenzeSenzaEntrata += 1;
+      } else if (a.isCheckin) {
+        entrate.push(
+          entryFrom("ENTRATA", code, `da ${shortOrig}`, a)
+        );
+        totali.entrate += 1;
+      } else if (a.isStayOver) {
+        const cuts = linenChangeCutDays(a.nights);
+        const dayOffset = daysBetweenISO(a.checkin, date);
+        if (cuts.has(dayOffset)) {
+          fermateConCambio.push(
+            entryFrom("FERMATA_CON_CAMBIO", `${code}*`, `da ${shortOrig}`, a, {
+              notte: dayOffset + 1,
+              nottiTotali: a.nights,
+            })
+          );
+          totali.fermateConCambio += 1;
+        } else {
+          aprireEControllare.push(
+            entryFrom("FERMATA_SEMPLICE", code, `da ${shortOrig}`, a)
+          );
+          totali.fermateSemplici += 1;
+        }
+      }
+      matchedReservations.add(String(a.reservationId));
     }
 
     const numericCmp = (a, b) =>
