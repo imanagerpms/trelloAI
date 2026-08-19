@@ -1323,29 +1323,93 @@ async function computePulizie(hub, args = {}) {
       // indicando la struttura d'origine — lo staff verifica la camera sul tableau.
       const origLabel = nameById.get(a.bookingAcc) || a.bookingAcc;
       const shortOrig = String(origLabel).replace(/^(Domus\s*)/i, "").slice(0, 12);
+      // Euristica per includere anche il nome della camera di destinazione
+      // (es. NR#1) quando `roomName` dell'origine contiene tipo + numero.
+      // Nota: Octorate spesso mantiene `pmsProduct` della struttura di origine anche
+      // dopo lo spostamento sul tableau, quindi questa e' una deduzione per tipo.
+      const origRoomName = String(a.roomName || "");
+      const origCap = /Tripla/i.test(origRoomName)
+        ? "Tripla"
+        : /Quad/i.test(origRoomName)
+          ? "Quad"
+          : /Doppia/i.test(origRoomName)
+            ? "Doppia"
+            : null;
+      const origNum = (() => {
+        const m = origRoomName.match(/#(\d+)/);
+        return m ? Number(m[1]) : null;
+      })();
+
+      const candidates = rooms.filter((rm) => {
+        if (!origCap) return false;
+        if (origCap === "Tripla") return /Tripla/i.test(rm.name);
+        if (origCap === "Quad") return /Quad/i.test(rm.name);
+        if (origCap === "Doppia") return /Doppia/i.test(rm.name);
+        return false;
+      });
+
+      const destNumTarget = (() => {
+        // Heuristics per NR: Tripla -> {1,5} ; Doppia -> {2,4} ; Quad -> {3}
+        if (origCap === "Tripla" && origNum != null) {
+          if (origNum === 1) return 1;
+          if (origNum === 5) return 5;
+        }
+        if (origCap === "Doppia" && origNum != null) {
+          if (origNum === 3) return 2;
+          if (origNum === 4) return 4;
+        }
+        if (origCap === "Quad" && origNum != null) {
+          return 3;
+        }
+        return null;
+      })();
+
+      const destRoom = (() => {
+        if (!candidates.length) return null;
+        if (destNumTarget == null) return candidates[0];
+        const findByCodeNum = (rm) => {
+          const code = shortRoomCode(rm.name);
+          const m = String(code).match(/#(\d+)/);
+          return m ? Number(m[1]) : null;
+        };
+        return candidates.find((rm) => findByCodeNum(rm) === destNumTarget) || candidates[0];
+      })();
+
+      const destCode = destRoom ? shortRoomCode(destRoom.name) : null;
+      const movedTag = `da ${shortOrig}`;
       let code;
       if (a.isCheckin) {
-        code = `(da ${shortOrig}) ${a.pax || ""}p`.replace(/\s+p$/, "p");
+        code = destCode
+          ? `${destCode} (${movedTag}) ${a.pax || ""}p`
+          : `(da ${shortOrig}) ${a.pax || ""}p`;
+        code = code.replace(/\s+p$/, "p");
       } else {
-        code = `(da ${shortOrig})`;
+        code = destCode ? `${destCode} (${movedTag})` : `(da ${shortOrig})`;
       }
+      const destCamera = destRoom ? destRoom.name : `da ${shortOrig}`;
 
       if (a.isCheckout && a.isCheckin) {
         // Cerca un altro moved-checkin dalla stessa struttura che potrebbe entrare qui
         partenzeConEntrata.push(
-          entryFrom("PARTENZA_CON_ENTRATA", code, `da ${shortOrig}`, a, {
+          entryFrom("PARTENZA_CON_ENTRATA", code, destCamera, a, {
             ospiteInUscita: a.guest,
           })
         );
         totali.partenzeConEntrata += 1;
       } else if (a.isCheckout) {
         partenzeSenzaEntrata.push(
-          entryFrom("PARTENZA_SENZA_ENTRATA", code, `da ${shortOrig}`, a, { pax: null })
+          entryFrom(
+            "PARTENZA_SENZA_ENTRATA",
+            code,
+            destCamera,
+            a,
+            { pax: null }
+          )
         );
         totali.partenzeSenzaEntrata += 1;
       } else if (a.isCheckin) {
         entrate.push(
-          entryFrom("ENTRATA", code, `da ${shortOrig}`, a)
+          entryFrom("ENTRATA", code, destCamera, a)
         );
         totali.entrate += 1;
       } else if (a.isStayOver) {
@@ -1353,15 +1417,21 @@ async function computePulizie(hub, args = {}) {
         const dayOffset = daysBetweenISO(a.checkin, date);
         if (cuts.has(dayOffset)) {
           fermateConCambio.push(
-            entryFrom("FERMATA_CON_CAMBIO", `${code}*`, `da ${shortOrig}`, a, {
+            entryFrom(
+              "FERMATA_CON_CAMBIO",
+              `${code}*`,
+              destCamera,
+              a,
+              {
               notte: dayOffset + 1,
               nottiTotali: a.nights,
-            })
+              }
+            )
           );
           totali.fermateConCambio += 1;
         } else {
           aprireEControllare.push(
-            entryFrom("FERMATA_SEMPLICE", code, `da ${shortOrig}`, a)
+            entryFrom("FERMATA_SEMPLICE", code, destCamera, a)
           );
           totali.fermateSemplici += 1;
         }
