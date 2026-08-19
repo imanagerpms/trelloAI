@@ -9,7 +9,7 @@ Presenta la lista per struttura, in questo ordine:
 1. **PARTENZA CON ENTRATA** e **ENTRATA** → `ROOM Np` (es. `ITC#1 2p`). Preparare per N persone, ordine per orario check-in.
 2. **PARTENZA SENZA ENTRATA** → `ROOM` (senza numero persone). Stessa pulizia completa di un’entrata, senza preparare per N ospiti. Vale anche per gli appartamenti. Dopo le partenze/entrate con Np.
 3. **FERMATA CON CAMBIO** → `ROOM*`. Cambio biancheria bagno/letto, rassetto, terra, cestino, sapone/carta. **Solo affittacamere** — negli appartamenti non si fanno fermate.
-4. **FERMATA semplice** e **camere vuote** → non in lista; aprire e controllare. Negli appartamenti niente fermate.
+4. **FERMATA semplice** e **camere vuote** → in lista; aprire e controllare. Negli appartamenti niente fermate.
 
 Note utili alle cameriere (late/early check-in, letti separati, rose/vino, …) tra `[ ]` dopo la codifica. Ignora testo standard irrilevante.
 
