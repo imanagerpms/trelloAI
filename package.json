@@ -15,6 +15,7 @@
     "ship:bootstrap": "node deploy/ship.mjs --bootstrap",
     "octorate-login": "node src/octorate-login.js",
     "octorate-capture": "node src/octorate-login-capture.js --ship",
+    "octorate-refresh": "node src/octorate-refresh.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

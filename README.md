@@ -138,6 +138,16 @@ Aree: Manutenzioni · Customer care · Pulizie · Interazione clienti (stub AIBr
    `https://151-115-166-171.sslip.io/oauth/callback`
 2. Apri https://151-115-166-171.sslip.io/oauth/login e autorizza
 
+### Refresh token Octorate
+
+Se il bot dice che Octorate non risponde / token scaduto:
+
+1. **Admin UI** → Integrazioni → **Rinnova token** (usa il refresh senza browser)
+2. Se fallisce → **Ricollega (login OAuth)** oppure apri `/oauth/login`
+3. In locale: `npm run octorate-refresh` e, per aggiornare Scaleway: `npm run octorate-refresh -- --ship`
+
+Il Super Manager, in caso di 401, prova già un refresh forzato e riconnette MCP.
+
 ## Troubleshooting
 
 - **Server MCP non connesso**: verifica che `npm install` sia stato eseguito e che `.env` esista

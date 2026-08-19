@@ -141,6 +141,19 @@ main { padding: 1.5rem 1.75rem 3rem; max-width: 58rem; }
 .field { display: grid; gap: 0.3rem; margin-bottom: 0.65rem; }
 .field label { font-size: 0.85rem; color: var(--muted); }
 .row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.row { display: flex; align-items: center; }
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  background: #fff;
+  font: inherit;
+}
+a.button-link:hover { border-color: var(--accent); }
 
 .status-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
 .status-list li {

@@ -6,7 +6,10 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getOctorateAccessToken } from "./octorate-auth.js";
+import {
+  forceRefreshOctorateToken,
+  getOctorateAccessToken,
+} from "./octorate-auth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
@@ -187,8 +190,15 @@ export class McpHub {
         /unauthoriz|401|token|expired|forbidden|403/i.test(msg);
       if (authFail) {
         console.warn(
-          `[mcp:octorate] auth error su ${toolName}, riconnetto… (${msg})`
+          `[mcp:octorate] auth error su ${toolName}, forzo refresh token e riconnetto… (${msg})`
         );
+        try {
+          await forceRefreshOctorateToken();
+        } catch (refreshErr) {
+          console.error(
+            `[mcp:octorate] refresh fallito: ${refreshErr.message}`
+          );
+        }
         await this.connectOctorate();
         return this.callTool(server, toolName, args, { _retried: true });
       }

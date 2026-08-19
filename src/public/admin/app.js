@@ -482,6 +482,21 @@ async function renderIntegrations(el) {
   $("#page-sub").textContent =
     "Collegamenti esterni. AIBridge arriverà qui quando l’API sarà pronta.";
   const status = await api("/api/admin/status");
+  const oa = status.octorateAuth || {};
+  const oaOk = oa.authenticated && !oa.expired;
+  const oaLabel = !oa.authenticated
+    ? "non collegato"
+    : oa.expired
+      ? "scaduto"
+      : oa.source === "env"
+        ? "ok (env)"
+        : "ok";
+  const expiresLabel = oa.expiresAt
+    ? new Date(oa.expiresAt).toLocaleString("it-IT")
+    : oa.source === "env"
+      ? "fisso da .env"
+      : "—";
+
   el.innerHTML = `
     <div class="card">
       <h2>Attivi</h2>
@@ -489,6 +504,9 @@ async function renderIntegrations(el) {
         <li><span>Octorate MCP / OAuth</span><span class="pill ${
           status.secrets.octorate ? "ok" : "no"
         }">${status.secrets.octorate ? "ok" : "mancante"}</span></li>
+        <li><span>Token Octorate</span><span class="pill ${
+          oaOk ? "ok" : "no"
+        }">${oaLabel}</span></li>
         <li><span>Trello</span><span class="pill ${
           status.secrets.trello ? "ok" : "no"
         }">${status.secrets.trello ? "ok" : "mancante"}</span></li>
@@ -501,7 +519,17 @@ async function renderIntegrations(el) {
           status.secrets.openai || status.secrets.anthropic ? "ok" : "mancante"
         }</span></li>
       </ul>
-      <p class="muted" style="margin-top:0.75rem">OAuth Octorate: <a href="/oauth/login">/oauth/login</a></p>
+      <p class="muted" style="margin-top:0.75rem">
+        Scadenza access token: <strong>${escapeHtml(expiresLabel)}</strong>
+        ${oa.hasRefreshToken ? " · refresh disponibile" : " · senza refresh (serve login)"}
+      </p>
+      <div class="row" style="margin-top:0.75rem;gap:0.5rem;flex-wrap:wrap">
+        <button type="button" class="primary" id="btn-octorate-refresh">Rinnova token</button>
+        <a class="button-link" href="/oauth/login">Ricollega (login OAuth)</a>
+      </div>
+      <p class="muted" style="margin-top:0.5rem">
+        «Rinnova» usa il refresh_token senza browser. Se fallisce, usa «Ricollega».
+      </p>
     </div>
     <div class="card">
       <h2>AIBridge (stub)</h2>
@@ -512,6 +540,28 @@ async function renderIntegrations(el) {
       <p class="muted">Policy: vedi regola «Interazione clienti».</p>
     </div>
   `;
+
+  const refreshBtn = $("#btn-octorate-refresh");
+  if (refreshBtn) {
+    refreshBtn.onclick = async () => {
+      refreshBtn.disabled = true;
+      try {
+        const res = await api("/api/admin/octorate/refresh", { method: "POST" });
+        toast(
+          res.octorateAuth?.expiresAt
+            ? `Token rinnovato fino a ${new Date(res.octorateAuth.expiresAt).toLocaleString("it-IT")}`
+            : "Token rinnovato"
+        );
+        await renderIntegrations(el);
+      } catch (e) {
+        toast(
+          `${e.message} — apri «Ricollega» se serve un nuovo login`,
+          true
+        );
+        refreshBtn.disabled = false;
+      }
+    };
+  }
 }
 
 function escapeHtml(s) {

@@ -131,7 +131,87 @@ export async function exchangeAuthorizationCode(
   }
 }
 
-export async function getOctorateAccessToken() {
+/**
+ * Stato token senza esporre i secret.
+ * @returns {{
+ *   authenticated: boolean,
+ *   source: "env"|"file"|"none",
+ *   hasAccessToken: boolean,
+ *   hasRefreshToken: boolean,
+ *   expiresAt: string|null,
+ *   expired: boolean,
+ *   obtainedAt: string|null,
+ * }}
+ */
+export function getOctorateTokenStatus() {
+  const envTok = process.env.OCTORATE_MCP_ACCESS_TOKEN;
+  if (envTok && String(envTok).trim()) {
+    return {
+      authenticated: true,
+      source: "env",
+      hasAccessToken: true,
+      hasRefreshToken: false,
+      expiresAt: null,
+      expired: false,
+      obtainedAt: null,
+    };
+  }
+
+  const tokens = loadTokens();
+  if (!tokens?.access_token && !tokens?.refresh_token) {
+    return {
+      authenticated: false,
+      source: "none",
+      hasAccessToken: false,
+      hasRefreshToken: false,
+      expiresAt: null,
+      expired: true,
+      obtainedAt: null,
+    };
+  }
+
+  const expiresAt = tokens.expires_at ? Number(tokens.expires_at) : null;
+  const expired = Boolean(expiresAt && Date.now() >= expiresAt);
+  return {
+    authenticated: Boolean(tokens.access_token || tokens.refresh_token),
+    source: "file",
+    hasAccessToken: Boolean(tokens.access_token),
+    hasRefreshToken: Boolean(tokens.refresh_token),
+    expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+    expired,
+    obtainedAt: tokens.obtained_at || null,
+  };
+}
+
+/**
+ * Forza il rinnovo via refresh_token (anche se expires_at non è ancora passato).
+ * Utile dopo 401 Octorate o da Admin/CLI.
+ */
+export async function forceRefreshOctorateToken() {
+  if (process.env.OCTORATE_MCP_ACCESS_TOKEN) {
+    throw new Error(
+      "È impostato OCTORATE_MCP_ACCESS_TOKEN nel .env: rimuovilo per usare OAuth, oppure aggiorna quel valore manualmente."
+    );
+  }
+
+  const tokens = loadTokens();
+  if (!tokens?.refresh_token) {
+    throw new Error(
+      "Nessun refresh_token salvato. Apri /oauth/login sul server pubblico."
+    );
+  }
+
+  return exchangeToken({
+    grant_type: "refresh_token",
+    refresh_token: tokens.refresh_token,
+  });
+}
+
+/**
+ * @param {{ forceRefresh?: boolean }} [opts]
+ */
+export async function getOctorateAccessToken(opts = {}) {
+  const { forceRefresh = false } = opts;
   const envTok = process.env.OCTORATE_MCP_ACCESS_TOKEN;
   if (envTok) return envTok;
 
@@ -143,6 +223,7 @@ export async function getOctorateAccessToken() {
   }
 
   if (
+    !forceRefresh &&
     tokens.access_token &&
     tokens.expires_at &&
     Date.now() < tokens.expires_at

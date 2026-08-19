@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import {
   beginOAuthLogin,
   exchangeAuthorizationCode,
+  forceRefreshOctorateToken,
+  getOctorateTokenStatus,
   getRedirectUri,
   takeOAuthState,
 } from "./octorate-auth.js";
@@ -198,9 +200,29 @@ export function startPublicHttpServer(opts = {}) {
           sendJson(res, 200, {
             ok: true,
             secrets: secretsStatus(),
+            octorateAuth: getOctorateTokenStatus(),
             rules: listRules(),
             systemPromptChars: buildSystemPrompt().length,
           });
+          return;
+        }
+
+        if (pathname === "/api/admin/octorate/refresh" && method === "POST") {
+          try {
+            await forceRefreshOctorateToken();
+            if (opts.onOAuthSuccess) await opts.onOAuthSuccess();
+            sendJson(res, 200, {
+              ok: true,
+              octorateAuth: getOctorateTokenStatus(),
+            });
+          } catch (e) {
+            sendJson(res, 400, {
+              ok: false,
+              error: e.message,
+              loginPath: "/oauth/login",
+              octorateAuth: getOctorateTokenStatus(),
+            });
+          }
           return;
         }
 
